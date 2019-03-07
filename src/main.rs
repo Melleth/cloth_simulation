@@ -10,12 +10,49 @@ use na::{Point3, UnitQuaternion, Vector3};
 use std::cell::RefCell;
 use std::rc::Rc;
 
+
+mod cloth {
+    use kiss3d::camera::{ArcBall, FirstPerson};
+    use kiss3d::event::{Action, Key, WindowEvent};
+    use kiss3d::light::Light;
+    use kiss3d::window::Window;
+    use kiss3d::resource::{Mesh, MeshManager};
+    use na::{Point3, UnitQuaternion, Vector3};
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    
+    pub struct Cloth {
+        vertices: Vec<Point3<f32>>,
+        widht: usize,
+        height: usize,
+    }
+
+    impl Cloth {
+        pub fn new(width: usize, height: usize) -> Cloth {
+            let mut vertices: Vec<Point3<f32>> =  vec![Point3::origin(); width*height];
+            for i in 0..height {
+                for j in 0..width {
+                    // construct in z plane
+                    vertices[j + i * height] = Point3::new(j as f32, i as f32, 0.0);
+                }
+            }
+            Cloth { widht: width, 
+                    height: height,
+                    vertices: vertices }
+        }
+    }
+}
+
+use cloth::Cloth;
+
 fn main() {
     let eye = Point3::new(10.0f32, 10.0, 10.0);
     let at = Point3::origin();
     let mut first_person = FirstPerson::new(eye, at);
     let mut arc_ball = ArcBall::new(eye, at);
     let mut use_arc_ball = true;
+
+    let mut cloth = cloth::Cloth::new(10,10);
 
     let mut window = Window::new("Cloth Simulation");
     window.set_light(Light::StickToCamera);
