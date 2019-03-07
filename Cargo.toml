@@ -1,0 +1,9 @@
+[package]
+name = "cloth_simulation"
+version = "0.1.0"
+authors = ["siemenkraayenbrink"]
+edition = "2018"
+
+[dependencies]
+kiss3d = "0.18.0"
+nalgebra = "0.17.2"
