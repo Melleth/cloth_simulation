@@ -25,6 +25,39 @@ mod cloth {
         vertices: Vec<Point3<f32>>,
         widht: usize,
         height: usize,
+        springs: Vec<Spring>,
+    }
+
+    pub struct ClothPoint {
+        mass: f32,
+        velocity: Vector3<f32>,
+        springIndices: Vec<usize>,
+        isFixed: bool,
+    }
+
+    pub struct Spring {
+        
+        restLength: f32,
+        k: f32,
+        kDamping: f32,
+        distanceScale: f32,
+
+        vert1: usize,
+        vert2: usize,
+    }
+
+    impl Spring {
+        pub fn new(restLength: f32, forceConstant: f32, kDamping: f32, distanceScale: f32, vert1: usize, vert2: usize) -> Spring {
+
+            Spring {
+                restLength: restLength,
+                k: forceConstant,
+                kDamping: kDamping,
+                distanceScale: distanceScale,
+                vert1: vert1,
+                vert2: vert2, 
+            }
+        }
     }
 
     impl Cloth {
@@ -33,17 +66,64 @@ mod cloth {
             for i in 0..height {
                 for j in 0..width {
                     // construct in z plane
-                    vertices[j + i * height] = Point3::new(j as f32, i as f32, 0.0);
+                    vertices[j + i * width] = Point3::new(j as f32, i as f32, 0.0);
                 }
             }
+
+            let mut springs: Vec<Spring> = Vec::with_capacity(4 * (width * height) - 3 * (width - 1) - 3 * (height - 1) - 4);
+
+            let restLength = 1.0;
+            let diagonalRestLength = 1.414214;
+            let forceConstant = 1.0;
+            let kDamping = 0.1;
+            let distanceScale = 10.0;
+
+            //Connect top row
+            for x in 0..width  {
+                springs.push(Spring::new(restLength, forceConstant, kDamping, distanceScale, x, x + 1)); //Right
+                springs.push(Spring::new(restLength, forceConstant, kDamping, distanceScale, x, x + width)); //Bottom
+                springs.push(Spring::new(diagonalRestLength, forceConstant, kDamping, distanceScale, x, (x + 1) + width)); //Bottom right
+            }
+
+            //Connect right edge
+            for y in 0..(height - 1) {
+                springs.push(Spring::new(restLength, forceConstant, kDamping, distanceScale, width + (y * width), width + ((y+1) * width))); //Bottom
+            }
+
+            //Connect middle
+            for y in 1..(height - 1) {
+                for x in 0..(width - 1){
+                    springs.push(Spring::new(diagonalRestLength, forceConstant, kDamping, distanceScale, x + (y * width), (x+1) + ((y-1) * width))); //Top right
+                    springs.push(Spring::new(restLength, forceConstant, kDamping, distanceScale, x + (y * width), (x+1) + (y * width))); //Right
+                    springs.push(Spring::new(diagonalRestLength, forceConstant, kDamping, distanceScale, x + (y * width), (x+1) + ((y+1) * width))); //Bottom Right
+                    springs.push(Spring::new(restLength, forceConstant, kDamping, distanceScale, x + (y * width), x + ((y+1) * width))); //Bottom
+                }
+            }
+
+            //Connect bottom row
+            for x in 0..(width - 1) {
+                springs.push(Spring::new(diagonalRestLength, forceConstant, kDamping, distanceScale, x + ((height-1) * width), (x+1) + ((height-2) * width))); //Top right
+                springs.push(Spring::new(restLength, forceConstant, kDamping, distanceScale, x + ((height-1) * width), (x+1) + ((height-1) * width))); //Right
+            }
+            
+            //Bottom right corner is connected through the other loops
+
             Cloth { widht: width, 
                     height: height,
-                    vertices: vertices }
+                    vertices: vertices,
+                    springs: springs, }
+        }
+
+        pub fn SpringForce(springIndex: usize) -> f32 {
+            return 0.0
         }
     }
 }
 
 use cloth::Cloth;
+
+
+
 
 fn main() {
     let eye = Point3::new(10.0f32, 10.0, 10.0);
