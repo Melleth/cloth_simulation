@@ -120,7 +120,7 @@ mod cloth {
             let distance_scale = 10.0;
 
             //Connect top row
-            for x in 0..width  {
+            for x in 0..(width-1)  {
                 cloth_points[x].spring_indices.push(springs.len());
                 springs.push(Spring::new(rest_length, forceConstant, k_damping, distance_scale, x, x + 1)); //Right
 
