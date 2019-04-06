@@ -86,7 +86,7 @@ mod cloth {
 
             let mass : f32 = 1.0;
             
-
+            //TODO: Maybe just tear this apart and have vectors for each value, might be faster for resseting the velocity every t?
             let mut clothPoints: Vec<ClothPoint> = vec![ClothPoint::new(mass, Vector3::new(0.0, 0.0, 0.0), false); width * height];
 
             //Fix top corners
@@ -153,6 +153,30 @@ mod cloth {
                     springs: springs,
                     clothPoints: clothPoints }
         }
+
+        pub fn CalculateForces(mut self) {
+            
+            for spring in self.springs.iter()  {
+                let vert1Index : usize = spring.vert1;
+                let vert2Index : usize = spring.vert2;
+
+                //Calculate stretch term
+                let distance : f32 = na::distance(&self.vertices[spring.vert1], &self.vertices[spring.vert2]);
+                let stretch : f32 = spring.k * (distance - spring.restLength) * spring.distanceScale;
+                
+                //Calculate damping term
+                let directionN = (self.vertices[vert2Index] - self.vertices[vert1Index]).normalize();
+                let velocityDiff = self.clothPoints[vert2Index].velocity - self.clothPoints[vert1Index].velocity;
+                let damping = spring.kDamping * velocityDiff.dot(&directionN);
+
+                //Calculate and apply force to the connected points
+                let force = (stretch + damping) * directionN;
+
+                self.clothPoints[vert1Index].velocity += force;
+                self.clothPoints[vert2Index].velocity -= force;
+            }
+        }
+
     }
 }
 
