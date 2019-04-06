@@ -22,8 +22,8 @@ mod cloth {
     use std::rc::Rc;
     
     pub struct Cloth {
-        vertices: Vec<Point3<f32>>,
-        indices: Vec<Point3<u16>>,
+        pub vertices: Vec<Point3<f32>>,
+        pub indices: Vec<Point3<u16>>,
         width: usize,
         height: usize,
         mesh: Option<Mesh>,
@@ -108,59 +108,59 @@ mod cloth {
             let mut cloth_points: Vec<ClothPoint> = vec![ClothPoint::new(mass, Vector3::new(0.0, 0.0, 0.0), false); width * height];
 
             //Fix top corners
-            cloth_points[0].is_fixed = true;
-            cloth_points[width-1].is_fixed = true;
+            cloth_points[width * height - 1].is_fixed = true;
+            cloth_points[width * height - width].is_fixed = true;
 
             let mut springs: Vec<Spring> = Vec::with_capacity(4 * (width * height) - 3 * (width - 1) - 3 * (height - 1) - 4);
 
             let rest_length : f32 = 1.0;
             let diagonal_rest_length : f32 =  (2.0 * (rest_length * rest_length)).sqrt();
-            let force_constant = 1.0;
+            let forceConstant = 1.0;
             let k_damping = 0.1;
             let distance_scale = 10.0;
 
             //Connect top row
             for x in 0..width  {
                 cloth_points[x].spring_indices.push(springs.len());
-                springs.push(Spring::new(rest_length, force_constant, k_damping, distance_scale, x, x + 1)); //Right
+                springs.push(Spring::new(rest_length, forceConstant, k_damping, distance_scale, x, x + 1)); //Right
 
                 cloth_points[x].spring_indices.push(springs.len());
-                springs.push(Spring::new(rest_length, force_constant, k_damping, distance_scale, x, x + width)); //Bottom
+                springs.push(Spring::new(rest_length, forceConstant, k_damping, distance_scale, x, x + width)); //Bottom
 
                 cloth_points[x].spring_indices.push(springs.len());
-                springs.push(Spring::new(diagonal_rest_length, force_constant, k_damping, distance_scale, x, (x + 1) + width)); //Bottom right
+                springs.push(Spring::new(diagonal_rest_length, forceConstant, k_damping, distance_scale, x, (x + 1) + width)); //Bottom right
             }
 
             //Connect right column
             for y in 0..(height - 1) {
                 cloth_points[(width-1) + (y * width)].spring_indices.push(springs.len());
-                springs.push(Spring::new(rest_length, force_constant, k_damping, distance_scale, (width-1) + (y * width), (width-1) + ((y+1) * width))); //Bottom
+                springs.push(Spring::new(rest_length, forceConstant, k_damping, distance_scale, (width-1) + (y * width), (width-1) + ((y+1) * width))); //Bottom
             }
 
             //Connect middle
             for y in 1..(height - 1) {
                 for x in 0..(width - 1){
                     cloth_points[x + (y * width)].spring_indices.push(springs.len());
-                    springs.push(Spring::new(diagonal_rest_length, force_constant, k_damping, distance_scale, x + (y * width), (x+1) + ((y-1) * width))); //Top right
+                    springs.push(Spring::new(diagonal_rest_length, forceConstant, k_damping, distance_scale, x + (y * width), (x+1) + ((y-1) * width))); //Top right
 
                     cloth_points[x + (y * width)].spring_indices.push(springs.len());
-                    springs.push(Spring::new(rest_length, force_constant, k_damping, distance_scale, x + (y * width), (x+1) + (y * width))); //Right
+                    springs.push(Spring::new(rest_length, forceConstant, k_damping, distance_scale, x + (y * width), (x+1) + (y * width))); //Right
 
                     cloth_points[x + (y * width)].spring_indices.push(springs.len());
-                    springs.push(Spring::new(diagonal_rest_length, force_constant, k_damping, distance_scale, x + (y * width), (x+1) + ((y+1) * width))); //Bottom Right
+                    springs.push(Spring::new(diagonal_rest_length, forceConstant, k_damping, distance_scale, x + (y * width), (x+1) + ((y+1) * width))); //Bottom Right
 
                     cloth_points[x + (y * width)].spring_indices.push(springs.len());
-                    springs.push(Spring::new(rest_length, force_constant, k_damping, distance_scale, x + (y * width), x + ((y+1) * width))); //Bottom
+                    springs.push(Spring::new(rest_length, forceConstant, k_damping, distance_scale, x + (y * width), x + ((y+1) * width))); //Bottom
                 }
             }
 
             //Connect bottom row
             for x in 0..(width - 1) {
                 cloth_points[x + ((height-1) * width)].spring_indices.push(springs.len());
-                springs.push(Spring::new(diagonal_rest_length, force_constant, k_damping, distance_scale, x + ((height-1) * width), (x+1) + ((height-2) * width))); //Top right
+                springs.push(Spring::new(diagonal_rest_length, forceConstant, k_damping, distance_scale, x + ((height-1) * width), (x+1) + ((height-2) * width))); //Top right
                 
                 cloth_points[x + ((height-1) * width)].spring_indices.push(springs.len());
-                springs.push(Spring::new(rest_length, force_constant, k_damping, distance_scale, x + ((height-1) * width), (x+1) + ((height-1) * width))); //Right
+                springs.push(Spring::new(rest_length, forceConstant, k_damping, distance_scale, x + ((height-1) * width), (x+1) + ((height-1) * width))); //Right
             }
             
             //Bottom right corner is connected through the other loops
@@ -250,20 +250,8 @@ fn main() {
     window.set_background_color(0.0, 0.21, 0.53);
 
     // Define the cloth, get the mesh from it and add it to the scene.
-    let mut cloth = cloth::Cloth::new(10,10);
-    let mesh = Rc::new(RefCell::new(cloth.get_mesh()));
-    MeshManager::get_global_manager(|mm| mm.add(mesh.clone(), "cloth_mesh"));
-    let mut cloth_object = window
-        .add_geom_with_name("cloth_mesh", Vector3::new(1.0, 1.0, 1.0))
-        .unwrap();
-    cloth_object.enable_backface_culling(false);
-
-    // Set wireframe rendering.
-    cloth_object.set_color(96.4, 0.0, 0.61);
-    cloth_object.set_points_size(10.0);
-    cloth_object.set_lines_width(2.0);
-    cloth_object.set_surface_rendering_activation(false);
-
+    let mut cloth = cloth::Cloth::new(30,30);
+    let mut old_group = window.add_group();
 
     // Update loop
     while !window.should_close() {
@@ -291,5 +279,26 @@ fn main() {
         } else {
             window.render_with_camera(&mut first_person);
         }
+        old_group.unlink();
+        
+        let mut mesh = Rc::new(RefCell::new(Mesh::new(cloth.vertices.clone(), cloth.indices.clone(), None, None, true)));
+
+        /*MeshManager::get_global_manager(|mm| mm.add(mesh.clone(), "cloth_mesh"));
+        let mut cloth_object = window
+            .add_geom_with_name("cloth_mesh", Vector3::new(1.0, 1.0, 1.0))
+            .unwrap();*/
+        let mut new_group = window.add_group();
+        let mut cloth_object = new_group.add_mesh(mesh, Vector3::new(1.0, 1.0, 1.0));
+        old_group = new_group;
+        cloth_object.enable_backface_culling(false);
+
+        // Set wireframe rendering.
+        cloth_object.set_color(96.4, 0.0, 0.61);
+        cloth_object.set_points_size(5.0);
+        cloth_object.set_lines_width(2.0);
+        cloth_object.set_surface_rendering_activation(false);
+
+
+        cloth.update(0.02);
     }
 }
