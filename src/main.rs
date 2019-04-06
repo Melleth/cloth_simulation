@@ -26,8 +26,10 @@ mod cloth {
         widht: usize,
         height: usize,
         springs: Vec<Spring>,
+        clothPoints: Vec<ClothPoint>,
     }
 
+    #[derive(Clone)]
     pub struct ClothPoint {
         mass: f32,
         velocity: Vector3<f32>,
@@ -60,6 +62,18 @@ mod cloth {
         }
     }
 
+    impl ClothPoint {
+        pub fn new( mass: f32, velocity: Vector3<f32>, isFixed: bool) -> ClothPoint {
+            
+            ClothPoint {
+                mass: mass,
+                velocity: velocity,
+                springIndices: Vec::new(),
+                isFixed: isFixed,
+            }
+        }
+    }
+
     impl Cloth {
         pub fn new(width: usize, height: usize) -> Cloth {
             let mut vertices: Vec<Point3<f32>> =  vec![Point3::origin(); width*height];
@@ -70,52 +84,126 @@ mod cloth {
                 }
             }
 
+            let mass : f32 = 1.0;
+            
+            //TODO: Maybe just tear this apart and have vectors for each value, might be faster for resseting the velocity every t?
+            let mut clothPoints: Vec<ClothPoint> = vec![ClothPoint::new(mass, Vector3::new(0.0, 0.0, 0.0), false); width * height];
+
+            //Fix top corners
+            clothPoints[0].isFixed = true;
+            clothPoints[width-1].isFixed = true;
+
             let mut springs: Vec<Spring> = Vec::with_capacity(4 * (width * height) - 3 * (width - 1) - 3 * (height - 1) - 4);
 
-            let restLength = 1.0;
-            let diagonalRestLength = 1.414214;
+            let restLength : f32 = 1.0;
+            let diagonalRestLength : f32 =  (2.0 * (restLength * restLength)).sqrt();
             let forceConstant = 1.0;
             let kDamping = 0.1;
             let distanceScale = 10.0;
 
             //Connect top row
             for x in 0..width  {
+                clothPoints[x].springIndices.push(springs.len());
                 springs.push(Spring::new(restLength, forceConstant, kDamping, distanceScale, x, x + 1)); //Right
+
+                clothPoints[x].springIndices.push(springs.len());
                 springs.push(Spring::new(restLength, forceConstant, kDamping, distanceScale, x, x + width)); //Bottom
+
+                clothPoints[x].springIndices.push(springs.len());
                 springs.push(Spring::new(diagonalRestLength, forceConstant, kDamping, distanceScale, x, (x + 1) + width)); //Bottom right
             }
 
-            //Connect right edge
+            //Connect right column
             for y in 0..(height - 1) {
-                springs.push(Spring::new(restLength, forceConstant, kDamping, distanceScale, width + (y * width), width + ((y+1) * width))); //Bottom
+                clothPoints[(width-1) + (y * width)].springIndices.push(springs.len());
+                springs.push(Spring::new(restLength, forceConstant, kDamping, distanceScale, (width-1) + (y * width), (width-1) + ((y+1) * width))); //Bottom
             }
 
             //Connect middle
             for y in 1..(height - 1) {
                 for x in 0..(width - 1){
+                    clothPoints[x + (y * width)].springIndices.push(springs.len());
                     springs.push(Spring::new(diagonalRestLength, forceConstant, kDamping, distanceScale, x + (y * width), (x+1) + ((y-1) * width))); //Top right
+
+                    clothPoints[x + (y * width)].springIndices.push(springs.len());
                     springs.push(Spring::new(restLength, forceConstant, kDamping, distanceScale, x + (y * width), (x+1) + (y * width))); //Right
+
+                    clothPoints[x + (y * width)].springIndices.push(springs.len());
                     springs.push(Spring::new(diagonalRestLength, forceConstant, kDamping, distanceScale, x + (y * width), (x+1) + ((y+1) * width))); //Bottom Right
+
+                    clothPoints[x + (y * width)].springIndices.push(springs.len());
                     springs.push(Spring::new(restLength, forceConstant, kDamping, distanceScale, x + (y * width), x + ((y+1) * width))); //Bottom
                 }
             }
 
             //Connect bottom row
             for x in 0..(width - 1) {
+                clothPoints[x + ((height-1) * width)].springIndices.push(springs.len());
                 springs.push(Spring::new(diagonalRestLength, forceConstant, kDamping, distanceScale, x + ((height-1) * width), (x+1) + ((height-2) * width))); //Top right
+                
+                clothPoints[x + ((height-1) * width)].springIndices.push(springs.len());
                 springs.push(Spring::new(restLength, forceConstant, kDamping, distanceScale, x + ((height-1) * width), (x+1) + ((height-1) * width))); //Right
             }
             
             //Bottom right corner is connected through the other loops
 
+            //TODO: Add bending springs? (skips 1 over)
+
             Cloth { widht: width, 
                     height: height,
                     vertices: vertices,
-                    springs: springs, }
+                    springs: springs,
+                    clothPoints: clothPoints }
         }
 
-        pub fn SpringForce(springIndex: usize) -> f32 {
-            return 0.0
+        pub fn UpdateVelocity(&mut self, dt : f32) {
+            
+            let gravity : Vector3<f32> = Vector3::new(0.0, -9.81, 0.0);
+
+            //Reset velocity
+            for clothPoint in self.clothPoints.iter_mut()  {
+                clothPoint.velocity = gravity * dt;
+            }
+
+            //Add up spring forces
+            for spring in self.springs.iter()  {
+                let vert1Index : usize = spring.vert1;
+                let vert2Index : usize = spring.vert2;
+
+                //Calculate stretch term
+                let distance : f32 = na::distance(&self.vertices[spring.vert1], &self.vertices[spring.vert2]);
+                let stretch : f32 = spring.k * (distance - spring.restLength) * spring.distanceScale;
+                
+                //Calculate damping term
+                let directionN = (self.vertices[vert2Index] - self.vertices[vert1Index]).normalize();
+                let velocityDiff = self.clothPoints[vert2Index].velocity - self.clothPoints[vert1Index].velocity;
+                let damping = spring.kDamping * velocityDiff.dot(&directionN);
+
+                //Calculate and apply force to the connected points
+                let force = (stretch + damping) * directionN;
+
+                self.clothPoints[vert1Index].velocity += force / self.clothPoints[vert1Index].mass;
+                self.clothPoints[vert2Index].velocity -= force / self.clothPoints[vert2Index].mass;
+            }
+        }
+        
+        pub fn UpdatePosition(&mut self, dt : f32) {
+            
+            for i in 0..self.vertices.len() {
+                
+                //Fixed point doesnt move
+                if self.clothPoints[i].isFixed {
+                    continue;
+                }
+
+                self.vertices[i] += self.clothPoints[i].velocity * dt;
+            }
+        }
+        
+        pub fn Update(&mut self, dt : f32) {
+
+            self.UpdateVelocity(dt);
+            self.UpdatePosition(dt);
         }
     }
 }
