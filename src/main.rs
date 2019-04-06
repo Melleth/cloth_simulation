@@ -147,6 +147,8 @@ mod cloth {
             
             //Bottom right corner is connected through the other loops
 
+            //TODO: Add bending springs? (skips 1 over)
+
             Cloth { widht: width, 
                     height: height,
                     vertices: vertices,
@@ -154,8 +156,16 @@ mod cloth {
                     clothPoints: clothPoints }
         }
 
-        pub fn CalculateForces(mut self) {
+        pub fn UpdateVelocity(&mut self, dt : f32) {
             
+            let gravity : Vector3<f32> = Vector3::new(0.0, -9.81, 0.0);
+
+            //Reset velocity
+            for clothPoint in self.clothPoints.iter_mut()  {
+                clothPoint.velocity = gravity * dt;
+            }
+
+            //Add up spring forces
             for spring in self.springs.iter()  {
                 let vert1Index : usize = spring.vert1;
                 let vert2Index : usize = spring.vert2;
@@ -172,11 +182,29 @@ mod cloth {
                 //Calculate and apply force to the connected points
                 let force = (stretch + damping) * directionN;
 
-                self.clothPoints[vert1Index].velocity += force;
-                self.clothPoints[vert2Index].velocity -= force;
+                self.clothPoints[vert1Index].velocity += force / self.clothPoints[vert1Index].mass;
+                self.clothPoints[vert2Index].velocity -= force / self.clothPoints[vert2Index].mass;
             }
         }
+        
+        pub fn UpdatePosition(&mut self, dt : f32) {
+            
+            for i in 0..self.vertices.len() {
+                
+                //Fixed point doesnt move
+                if self.clothPoints[i].isFixed {
+                    continue;
+                }
 
+                self.vertices[i] += self.clothPoints[i].velocity * dt;
+            }
+        }
+        
+        pub fn Update(&mut self, dt : f32) {
+
+            self.UpdateVelocity(dt);
+            self.UpdatePosition(dt);
+        }
     }
 }
 
