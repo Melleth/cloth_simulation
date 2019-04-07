@@ -34,14 +34,6 @@ mod cloth {
         is_fixed: Vec<bool>,
     }
 
-/*     #[derive(Clone)]
-    pub struct ClothPoint {
-        mass: f32,
-        velocity: Vector3<f32>,
-        spring_indices: Vec<usize>,
-        is_fixed: bool,
-    } */
-
     pub struct Spring {
         rest_length: f32,
         k: f32,
@@ -64,19 +56,7 @@ mod cloth {
             }
         }
     }
-
-/*     impl ClothPoint {
-        pub fn new(mass: f32, velocity: Vector3<f32>, is_fixed: bool) -> ClothPoint {
-            
-            ClothPoint {
-                mass: mass,
-                velocity: velocity,
-                spring_indices: Vec::new(),
-                is_fixed: is_fixed,
-            }
-        }
-    } */
-
+    
     impl Cloth {
         pub fn new(width: usize, height: usize) -> Cloth {
             let mut vertices: Vec<Point3<f32>> =  vec![Point3::origin(); width*height];
@@ -112,8 +92,8 @@ mod cloth {
             let mut is_fixed: Vec<bool> = vec![false; width * height];
 
             //Fix top corners
-            is_fixed[0] = true;
-            is_fixed[width-1] = true;
+            is_fixed[width * height - 1] = true;
+            is_fixed[width * height - width] = true;
 
             let mut springs: Vec<Spring> = Vec::with_capacity(4 * (width * height) - 3 * (width - 1) - 3 * (height - 1) - 4);
 
