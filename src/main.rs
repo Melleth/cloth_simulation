@@ -120,7 +120,7 @@ mod cloth {
             let distance_scale = 10.0;
 
             //Connect top row
-            for x in 0..width  {
+            for x in 0..(width - 1)  {
                 cloth_points[x].spring_indices.push(springs.len());
                 springs.push(Spring::new(rest_length, forceConstant, k_damping, distance_scale, x, x + 1)); //Right
 
@@ -250,24 +250,26 @@ fn main() {
     window.set_background_color(0.0, 0.21, 0.53);
 
     // Define the cloth, get the mesh from it and add it to the scene.
-    let mut cloth = cloth::Cloth::new(30,30);
+    let mut cloth = cloth::Cloth::new(50,50);
     let mut old_group = window.add_group();
 
+    let mut simulate = false;
     // Update loop
     while !window.should_close() {
         // rotate the arc-ball camera.
         let curr_yaw = arc_ball.yaw();
         arc_ball.set_yaw(curr_yaw + 0.001);
-        window.set_light(Light::StickToCamera);
+        window.set_light(Light::Absolute(Point3::new(1.0,1.0,1.0)));
 
         // update the current camera.
         for event in window.events().iter() {
             match event.value {
                 WindowEvent::Key(key, Action::Release, _) => {
-                    if key == Key::Key1 {
-                        use_arc_ball = true
-                    } else if key == Key::Key2 {
-                        use_arc_ball = false
+                    match key {
+                        Key::Key1 => use_arc_ball = true,
+                        Key::Key2 => use_arc_ball = false,
+                        Key::Space => simulate = !simulate,
+                        _ => ()
                     }
                 }
                 _ => {}
@@ -294,11 +296,13 @@ fn main() {
 
         // Set wireframe rendering.
         cloth_object.set_color(96.4, 0.0, 0.61);
-        cloth_object.set_points_size(5.0);
+        cloth_object.set_points_size(10.0);
         cloth_object.set_lines_width(2.0);
         cloth_object.set_surface_rendering_activation(false);
 
 
-        cloth.update(0.02);
+        if simulate {
+            cloth.update(0.02);
+        }
     }
 }
