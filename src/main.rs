@@ -6,10 +6,9 @@ use kiss3d::event::{Action, Key, WindowEvent};
 use kiss3d::light::Light;
 use kiss3d::window::Window;
 use kiss3d::resource::{Mesh, MeshManager};
-use na::{Point3, UnitQuaternion, Vector3};
+use na::{Translation3, Point3, UnitQuaternion, Vector3};
 use std::cell::RefCell;
 use std::rc::Rc;
-
 
 mod cloth {
     use kiss3d::camera::{ArcBall, FirstPerson};
@@ -24,8 +23,8 @@ mod cloth {
     pub struct Cloth {
         pub vertices: Vec<Point3<f32>>,
         pub indices: Vec<Point3<u16>>,
-        width: usize,
-        height: usize,
+        pub width: usize,
+        pub height: usize,
         mesh: Option<Mesh>,
         springs: Vec<Spring>,
 
@@ -162,6 +161,7 @@ mod cloth {
             }
         }
 
+        //Calculates the normal for a triangle defined by the given points
         fn triangle_normal(&self, p1 : Point3<f32>, p2 :  Point3<f32>, p3 :  Point3<f32>) -> Vector3<f32>
         {
             let v1 = p2-p1;
@@ -170,11 +170,12 @@ mod cloth {
             return v1.cross(&v2);
         }
 
+        //Get the force the wind enacts upon a triangles surface
         fn get_wind_force(&self, p1 : Point3<f32>, p2 :  Point3<f32>, p3 :  Point3<f32>, wind_vector : Vector3<f32>) -> Vector3<f32>
         {
             let normal = self.triangle_normal(p1,p2,p3);
-            let normalN = normal.normalize();
-            let wind_force = normal * (normalN.dot(&wind_vector));
+            let normal_n = normal.normalize();
+            let wind_force = normal * (normal_n.dot(&wind_vector));
             
             return wind_force;
         }
@@ -213,7 +214,7 @@ mod cloth {
 
             //Add up wind forces
             for x in 0..(self.width - 1)  {
-                for y in 0..(self.height-1){
+                for y in 0..(self.height - 1){
                     
                     //Get wind forces
                     let wind_force1 = self.get_wind_force(self.vertices[x + y * self.width], self.vertices[x + 1 + y * self.width], self.vertices[x + (y + 1) * self.width], wind_vector);
@@ -244,8 +245,26 @@ mod cloth {
         }
         
         pub fn update(&mut self, dt : f32) {
+            //TODO: Add sphere pos/size settings nicely
+            self.sphere_collision(Point3::new((self.width as f32)/2.0, -(5.0 * 1.5), (self.width as f32)/2.0), 5.0);
             self.update_velocity(dt);
             self.update_position(dt);
+        }
+
+        //Very naïve sphere - point collision detection and correction.
+        pub fn sphere_collision(&mut self, sphere_position : Point3<f32>, sphere_radius : f32) {
+
+            let sphere_radius_delta = sphere_radius + 0.2;
+            for vert in self.vertices.iter_mut()  {
+                //Calculate distance from sphere
+                let distance = *vert - sphere_position;
+                let distance_norm = distance.norm();
+
+                //If inside sphere, correct
+                if distance_norm < sphere_radius_delta {
+                    *vert += distance.normalize() * (sphere_radius_delta - distance_norm);
+                }
+            }
         }
     }
 }
@@ -267,9 +286,16 @@ fn main() {
     window.set_background_color(0.0, 0.21, 0.53);
 
     // Define the cloth, get the mesh from it and add it to the scene.
-    let mut cloth = cloth::Cloth::new(30,30);
+    let mut cloth = cloth::Cloth::new(33,33);
     let mut old_group = window.add_group();
 
+    //TODO: Add sphere pos/size settings nicely 
+    //Draw a nice colored sphere
+    let sphere_size : f32 = 5.0;
+    let mut s = window.add_sphere(sphere_size);
+    s.set_color(0.9506297, 0.9983103, 0.95816237);
+    s.append_translation(&Translation3::new((cloth.width as f32)/2.0, -(sphere_size * 1.5), (cloth.width as f32)/2.0));
+    
     // Update loop
     while !window.should_close() {
         // rotate the arc-ball camera.
