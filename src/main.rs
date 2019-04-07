@@ -6,10 +6,9 @@ use kiss3d::event::{Action, Key, WindowEvent};
 use kiss3d::light::Light;
 use kiss3d::window::Window;
 use kiss3d::resource::{Mesh, MeshManager};
-use na::{Point3, UnitQuaternion, Vector3};
+use na::{Translation3, Point3, UnitQuaternion, Vector3};
 use std::cell::RefCell;
 use std::rc::Rc;
-
 
 mod cloth {
     use kiss3d::camera::{ArcBall, FirstPerson};
@@ -24,8 +23,8 @@ mod cloth {
     pub struct Cloth {
         pub vertices: Vec<Point3<f32>>,
         pub indices: Vec<Point3<u16>>,
-        width: usize,
-        height: usize,
+        pub width: usize,
+        pub height: usize,
         mesh: Option<Mesh>,
         springs: Vec<Spring>,
 
@@ -64,7 +63,7 @@ mod cloth {
             for i in 0..height {
                 for j in 0..width {
                     // Construct in z plane for now :)
-                    vertices[j + i * width] = Point3::new(j as f32, i as f32, 0.0);
+                    vertices[j + i * width] = Point3::new(j as f32, 0.0, i as f32);
                 }
             }
 
@@ -86,7 +85,7 @@ mod cloth {
             }
 
             //Setup mass points
-            let mass : f32 = 1.0;
+            let mass : f32 = 0.5;
             let mut masses: Vec<f32> = vec![mass; width * height];
             let mut velocities: Vec<Vector3<f32>> = vec![Vector3::new(0.0, 0.0, 0.0); width * height];
             let mut is_fixed: Vec<bool> = vec![false; width * height];
@@ -99,7 +98,7 @@ mod cloth {
 
             let rest_length : f32 = 1.0;
             let diagonal_rest_length : f32 =  (2.0 * (rest_length * rest_length)).sqrt();
-            let force_constant = 1.0;
+            let force_constant = 10.0; //k
             let k_damping = 0.1;
             let distance_scale = 10.0;
 
@@ -162,14 +161,34 @@ mod cloth {
             }
         }
 
+        //Calculates the normal for a triangle defined by the given points
+        fn triangle_normal(&self, p1 : Point3<f32>, p2 :  Point3<f32>, p3 :  Point3<f32>) -> Vector3<f32>
+        {
+            let v1 = p2-p1;
+            let v2 = p3-p1;
+
+            return v1.cross(&v2);
+        }
+
+        //Get the force the wind enacts upon a triangles surface
+        fn get_wind_force(&self, p1 : Point3<f32>, p2 :  Point3<f32>, p3 :  Point3<f32>, wind_vector : Vector3<f32>) -> Vector3<f32>
+        {
+            let normal = self.triangle_normal(p1,p2,p3);
+            let normal_n = normal.normalize();
+            let wind_force = normal * (normal_n.dot(&wind_vector));
+            
+            return wind_force;
+        }
+        //Adds up the gravity and spring forces, and sets the resulting velocities.
         pub fn update_velocity(&mut self, dt : f32) {
             let gravity : Vector3<f32> = Vector3::new(0.0, -9.81, 0.0);
 
             //Reset velocity
-            for vel in self.velocities.iter_mut()  {
-                *vel = gravity * dt;
+            for v in 0..self.velocities.len()  {
+                self.velocities[v] = gravity * self.masses[v] * dt;
             }
 
+            let mut pr = 0;
             //Add up spring forces
             for spring in self.springs.iter()  {
                 let vert1_index : usize = spring.vert1;
@@ -187,11 +206,34 @@ mod cloth {
                 //Calculate and apply force to the connected points
                 let force = (stretch + damping) * direction_n;
 
-                self.velocities[vert1_index] += force / self.masses[vert1_index];
-                self.velocities[vert2_index] -= force / self.masses[vert2_index];
+                self.velocities[vert1_index] += force * dt / self.masses[vert1_index];
+                self.velocities[vert2_index] -= force * dt / self.masses[vert2_index];
+            }
+
+            let wind_vector : Vector3<f32> = Vector3::new(0.5, 0.0, 0.5);
+
+            //Add up wind forces
+            for x in 0..(self.width - 1)  {
+                for y in 0..(self.height - 1){
+                    
+                    //Get wind forces
+                    let wind_force1 = self.get_wind_force(self.vertices[x + y * self.width], self.vertices[x + 1 + y * self.width], self.vertices[x + (y + 1) * self.width], wind_vector);
+                    let wind_force2 = self.get_wind_force(self.vertices[x + (y + 1) * self.width], self.vertices[x + 1 + (y + 1) * self.width], self.vertices[x + 1 + y * self.width], wind_vector);
+
+                    //Triangle 1
+                    self.velocities[x + y * self.width] += wind_force1 * dt / self.masses[x + y * self.width];
+                    self.velocities[x + 1 + y * self.width] += wind_force1 * dt / self.masses[x + 1 + y * self.width];
+                    self.velocities[x + (y+1) * self.width] += wind_force1 * dt / self.masses[x + (y+1) * self.width];
+                    //Triangle2
+                    self.velocities[x + (y + 1) * self.width] += wind_force2 * dt / self.masses[x + (y + 1) * self.width];
+                    self.velocities[x + 1 + (y + 1) * self.width] += wind_force2 * dt / self.masses[x + 1 + (y + 1) * self.width];
+                    self.velocities[x + 1 + y * self.width] += wind_force2 * dt / self.masses[x + 1 + y * self.width];
+                }
+                
             }
         }
         
+        //Updates the positions according to the velocities.
         pub fn update_position(&mut self, dt : f32) {
             for i in 0..self.vertices.len() {
                 //Fixed point doesnt move
@@ -203,8 +245,26 @@ mod cloth {
         }
         
         pub fn update(&mut self, dt : f32) {
+            //TODO: Add sphere pos/size settings nicely
+            self.sphere_collision(Point3::new((self.width as f32)/2.0, -(5.0 * 1.5), (self.width as f32)/2.0), 5.0);
             self.update_velocity(dt);
             self.update_position(dt);
+        }
+
+        //Very naïve sphere - point collision detection and correction.
+        pub fn sphere_collision(&mut self, sphere_position : Point3<f32>, sphere_radius : f32) {
+
+            let sphere_radius_delta = sphere_radius + 0.2;
+            for vert in self.vertices.iter_mut()  {
+                //Calculate distance from sphere
+                let distance = *vert - sphere_position;
+                let distance_norm = distance.norm();
+
+                //If inside sphere, correct
+                if distance_norm < sphere_radius_delta {
+                    *vert += distance.normalize() * (sphere_radius_delta - distance_norm);
+                }
+            }
         }
     }
 }
@@ -226,10 +286,17 @@ fn main() {
     window.set_background_color(0.0, 0.21, 0.53);
 
     // Define the cloth, get the mesh from it and add it to the scene.
-    let mut cloth = cloth::Cloth::new(50,50);
+    let mut cloth = cloth::Cloth::new(33,33);
     let mut old_group = window.add_group();
-
     let mut simulate = false;
+
+    //TODO: Add sphere pos/size settings nicely 
+    //Draw a nice colored sphere
+    let sphere_size : f32 = 5.0;
+    let mut s = window.add_sphere(sphere_size);
+    s.set_color(0.9506297, 0.9983103, 0.95816237);
+    s.append_translation(&Translation3::new((cloth.width as f32)/2.0, -(sphere_size * 1.5), (cloth.width as f32)/2.0));
+    
     // Update loop
     while !window.should_close() {
         // rotate the arc-ball camera.
@@ -278,6 +345,21 @@ fn main() {
 
 
         if simulate {
+            cloth.update(0.02);
+            cloth.update(0.02);
+            cloth.update(0.02);
+            cloth.update(0.02);
+            cloth.update(0.02);
+            cloth.update(0.02);
+            cloth.update(0.02);
+            cloth.update(0.02);
+            cloth.update(0.02);
+            cloth.update(0.02);
+            cloth.update(0.02);
+            cloth.update(0.02);
+            cloth.update(0.02);
+            cloth.update(0.02);
+            cloth.update(0.02);
             cloth.update(0.02);
         }
     }
