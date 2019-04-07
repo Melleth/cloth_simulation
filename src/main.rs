@@ -47,7 +47,6 @@ mod cloth {
 
     impl Spring {
         pub fn new(rest_length: f32, force_constant: f32, k_damping: f32, distance_scale: f32, vert1: usize, vert2: usize) -> Spring {
-
             Spring {
                 rest_length: rest_length,
                 k: force_constant,
@@ -227,12 +226,11 @@ mod cloth {
                     self.velocities[x + 1 + (y + 1) * self.width] += wind_force2 * dt / self.masses[x + 1 + (y + 1) * self.width];
                     self.velocities[x + 1 + y * self.width] += wind_force2 * dt / self.masses[x + 1 + y * self.width];
                 }
-                
             }
         }
         
         //Updates the positions according to the velocities.
-        pub fn update_position(&mut self, dt : f32) {
+        pub fn update_position(&mut self, dt: f32) {
             for i in 0..self.vertices.len() {
                 //Fixed point doesnt move
                 if self.is_fixed[i] {
@@ -250,8 +248,7 @@ mod cloth {
         }
 
         //Very naïve sphere - point collision detection and correction.
-        pub fn sphere_collision(&mut self, sphere_position : Point3<f32>, sphere_radius : f32) {
-
+        pub fn sphere_collision(&mut self, sphere_position: Point3<f32>, sphere_radius: f32) {
             let sphere_radius_delta = sphere_radius + 0.2;
             for vert in self.vertices.iter_mut()  {
                 //Calculate distance from sphere
@@ -297,11 +294,12 @@ fn main() {
     
     // Update loop
     let mut num_iter = 1;
+    let mut show_wireframe = false;
     while !window.should_close() {
         // rotate the arc-ball camera.
         let curr_yaw = arc_ball.yaw();
         arc_ball.set_yaw(curr_yaw + 0.001);
-        window.set_light(Light::Absolute(Point3::new(1.0,1.0,1.0)));
+        window.set_light(Light::StickToCamera);
 
         // update the current camera.
         for event in window.events().iter() {
@@ -311,6 +309,7 @@ fn main() {
                         Key::Key1 => use_arc_ball = true,
                         Key::Key2 => use_arc_ball = false,
                         Key::Space => simulate = !simulate,
+                        Key::W => show_wireframe = !show_wireframe,
                         _ => ()
                     }
                 }
@@ -327,21 +326,17 @@ fn main() {
         
         let mut mesh = Rc::new(RefCell::new(Mesh::new(cloth.vertices.clone(), cloth.indices.clone(), None, None, true)));
 
-        /*MeshManager::get_global_manager(|mm| mm.add(mesh.clone(), "cloth_mesh"));
-        let mut cloth_object = window
-            .add_geom_with_name("cloth_mesh", Vector3::new(1.0, 1.0, 1.0))
-            .unwrap();*/
         let mut new_group = window.add_group();
         let mut cloth_object = new_group.add_mesh(mesh, Vector3::new(1.0, 1.0, 1.0));
         old_group = new_group;
         cloth_object.enable_backface_culling(false);
 
-        // Set wireframe rendering.
-        cloth_object.set_color(96.4, 0.0, 0.61);
-        cloth_object.set_color(0.5, 0.5, 0.5);
-        //cloth_object.set_points_size(10.0);
-        //cloth_object.set_lines_width(2.0);
-        //cloth_object.set_surface_rendering_activation(false);
+        cloth_object.set_color(0.964, 0.0, 0.61);
+        if show_wireframe {
+            cloth_object.set_points_size(10.0);
+            cloth_object.set_lines_width(2.0);
+            cloth_object.set_surface_rendering_activation(false);
+        }
 
         let time = Instant::now();
         if simulate {
@@ -350,7 +345,6 @@ fn main() {
             }
 
             let duration = time.elapsed();
-            
             if duration < Duration::from_millis(16) {
                 num_iter += 1;
             } else {
