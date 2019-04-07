@@ -52,7 +52,6 @@ impl Context {
     pub const FLOAT: u32 = ContextImpl::FLOAT;
     pub const INT: u32 = ContextImpl::INT;
     pub const UNSIGNED_INT: u32 = ContextImpl::UNSIGNED_INT;
-    pub const UNSIGNED_SHORT: u32 = ContextImpl::UNSIGNED_SHORT;
     pub const STATIC_DRAW: u32 = ContextImpl::STATIC_DRAW;
     pub const DYNAMIC_DRAW: u32 = ContextImpl::DYNAMIC_DRAW;
     pub const STREAM_DRAW: u32 = ContextImpl::STREAM_DRAW;
@@ -481,7 +480,6 @@ pub(crate) trait AbstractContextConst {
     const FLOAT: u32;
     const INT: u32;
     const UNSIGNED_INT: u32;
-    const UNSIGNED_SHORT: u32;
     const STATIC_DRAW: u32;
     const DYNAMIC_DRAW: u32;
     const STREAM_DRAW: u32;

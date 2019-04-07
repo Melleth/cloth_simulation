@@ -35,7 +35,6 @@ impl AbstractContextConst for GLContext {
     const FLOAT: u32 = gl::FLOAT;
     const INT: u32 = gl::INT;
     const UNSIGNED_INT: u32 = gl::UNSIGNED_INT;
-    const UNSIGNED_SHORT: u32 = gl::UNSIGNED_SHORT;
     const STATIC_DRAW: u32 = gl::STATIC_DRAW;
     const DYNAMIC_DRAW: u32 = gl::DYNAMIC_DRAW;
     const STREAM_DRAW: u32 = gl::STREAM_DRAW;

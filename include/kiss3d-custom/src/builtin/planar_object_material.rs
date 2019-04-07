@@ -96,7 +96,7 @@ impl PlanarMaterial for PlanarObjectMaterial {
                 verify!(ctxt.draw_elements(
                     Context::TRIANGLES,
                     mesh.num_pts() as i32,
-                    Context::UNSIGNED_SHORT,
+                    Context::UNSIGNED_INT,
                     0
                 ));
             }
@@ -109,7 +109,7 @@ impl PlanarMaterial for PlanarObjectMaterial {
                     verify!(ctxt.draw_elements(
                         Context::TRIANGLES,
                         mesh.num_pts() as i32,
-                        Context::UNSIGNED_SHORT,
+                        Context::UNSIGNED_INT,
                         0
                     ));
                 } else {
@@ -117,7 +117,7 @@ impl PlanarMaterial for PlanarObjectMaterial {
                     verify!(ctxt.draw_elements(
                         Context::LINES,
                         mesh.num_pts() as i32 * 2,
-                        Context::UNSIGNED_SHORT,
+                        Context::UNSIGNED_INT,
                         0
                     ));
                 }
@@ -131,14 +131,14 @@ impl PlanarMaterial for PlanarObjectMaterial {
                     verify!(ctxt.draw_elements(
                         Context::TRIANGLES,
                         mesh.num_pts() as i32,
-                        Context::UNSIGNED_SHORT,
+                        Context::UNSIGNED_INT,
                         0
                     ));
                 } else {
                     verify!(ctxt.draw_elements(
                         Context::POINTS,
                         mesh.num_pts() as i32,
-                        Context::UNSIGNED_SHORT,
+                        Context::UNSIGNED_INT,
                         0
                     ));
                 }

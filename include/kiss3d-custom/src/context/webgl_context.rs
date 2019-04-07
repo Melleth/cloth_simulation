@@ -189,7 +189,7 @@ impl AbstractContext for WebGLContext {
                 self.ctxt.buffer_data_1(target, Some(&abuf.buffer()), usage)
             }
             PrimitiveArray::UInt16(arr) => {
-                let abuf = TypedArray::<u16>::from(arr);
+                let abuf = TypedArray::<u32>::from(arr);
                 self.ctxt.buffer_data_1(target, Some(&abuf.buffer()), usage)
             }
         }
@@ -206,7 +206,7 @@ impl AbstractContext for WebGLContext {
                 self.ctxt.buffer_sub_data(target, offset, &abuf.buffer())
             }
             PrimitiveArray::UInt16(arr) => {
-                let abuf = TypedArray::<u16>::from(arr);
+                let abuf = TypedArray::<u32>::from(arr);
                 self.ctxt.buffer_sub_data(target, offset, &abuf.buffer())
             }
         }

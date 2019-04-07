@@ -14,8 +14,8 @@ pub enum PrimitiveArray<'a> {
     Float32(&'a [f32]),
     /// A array of i32.
     Int32(&'a [i32]),
-    /// A array of u16.
-    UInt16(&'a [u16]),
+    /// A array of u32.
+    UInt16(&'a [u32]),
 }
 
 /// Trait implemented by structures that can be uploaded to a uniform or contained by a gpu array.
@@ -468,10 +468,10 @@ unsafe impl GLPrimitive for Point2<i32> {
     }
 }
 
-unsafe impl GLPrimitive for Point2<u16> {
+unsafe impl GLPrimitive for Point2<u32> {
     #[inline]
     fn gl_type() -> u32 {
-        Context::UNSIGNED_SHORT
+        Context::UNSIGNED_INT
     }
 
     #[inline]
@@ -480,7 +480,7 @@ unsafe impl GLPrimitive for Point2<u16> {
             let len = array.len() * Self::size() as usize;
             let ptr = array.as_ptr();
 
-            PrimitiveArray::UInt16(slice::from_raw_parts(ptr as *const u16, len))
+            PrimitiveArray::UInt16(slice::from_raw_parts(ptr as *const u32, len))
         }
     }
 
@@ -495,10 +495,10 @@ unsafe impl GLPrimitive for Point2<u16> {
     }
 }
 
-unsafe impl GLPrimitive for Point3<u16> {
+unsafe impl GLPrimitive for Point3<u32> {
     #[inline]
     fn gl_type() -> u32 {
-        Context::UNSIGNED_SHORT
+        Context::UNSIGNED_INT
     }
 
     #[inline]
@@ -507,7 +507,7 @@ unsafe impl GLPrimitive for Point3<u16> {
             let len = array.len() * Self::size() as usize;
             let ptr = array.as_ptr();
 
-            PrimitiveArray::UInt16(slice::from_raw_parts(ptr as *const u16, len))
+            PrimitiveArray::UInt16(slice::from_raw_parts(ptr as *const u32, len))
         }
     }
 

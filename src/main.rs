@@ -23,7 +23,7 @@ mod cloth {
     
     pub struct Cloth {
         pub vertices: Vec<Point3<f32>>,
-        pub indices: Vec<Point3<u16>>,
+        pub indices: Vec<Point3<u32>>,
         width: usize,
         height: usize,
         mesh: Option<Mesh>,
@@ -60,7 +60,7 @@ mod cloth {
     impl Cloth {
         pub fn new(width: usize, height: usize) -> Cloth {
             let mut vertices: Vec<Point3<f32>> =  vec![Point3::origin(); width*height];
-            let mut indices: Vec<Point3<u16>> = vec![Point3::new(0u16, 0, 0); width * height * 2];
+            let mut indices: Vec<Point3<u32>> = vec![Point3::new(0u32, 0, 0); width * height * 2];
             for i in 0..height {
                 for j in 0..width {
                     // Construct in z plane for now :)
@@ -69,13 +69,13 @@ mod cloth {
             }
 
             // Helper var to avoid casting multiple times.
-            let w = width as u16;
+            let w = width as u32;
 
             // For each quad
             for i in 0..(width * height) {
-                let y = (i / width) as u16;
-                if y == height as u16 - 1 { break; }
-                let x = (i as u16) % (w - 1);
+                let y = (i / width) as u32;
+                if y == height as u32 - 1 { break; }
+                let x = (i as u32) % (w - 1);
                 // Define 2 triangles.
                 indices[i * 2 + 0] = Point3::new(x + y * w, x + 1 + y * w, x + (y+1) * w);
                 indices[i * 2 + 1] = Point3::new(x + (y + 1) * w, x + 1 + (y + 1) * w, x + 1 + y * w);
