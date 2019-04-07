@@ -64,7 +64,7 @@ mod cloth {
             for i in 0..height {
                 for j in 0..width {
                     // Construct in z plane for now :)
-                    vertices[j + i * width] = Point3::new(j as f32, i as f32, 0.0);
+                    vertices[j + i * width] = Point3::new(j as f32, 0.0, i as f32);
                 }
             }
 
@@ -86,7 +86,7 @@ mod cloth {
             }
 
             //Setup mass points
-            let mass : f32 = 1.0;
+            let mass : f32 = 0.5;
             let mut masses: Vec<f32> = vec![mass; width * height];
             let mut velocities: Vec<Vector3<f32>> = vec![Vector3::new(0.0, 0.0, 0.0); width * height];
             let mut is_fixed: Vec<bool> = vec![false; width * height];
@@ -99,7 +99,7 @@ mod cloth {
 
             let rest_length : f32 = 1.0;
             let diagonal_rest_length : f32 =  (2.0 * (rest_length * rest_length)).sqrt();
-            let force_constant = 1.0;
+            let force_constant = 10.0; //k
             let k_damping = 0.1;
             let distance_scale = 10.0;
 
@@ -162,14 +162,32 @@ mod cloth {
             }
         }
 
+        fn triangle_normal(&self, p1 : Point3<f32>, p2 :  Point3<f32>, p3 :  Point3<f32>) -> Vector3<f32>
+        {
+            let v1 = p2-p1;
+            let v2 = p3-p1;
+
+            return v1.cross(&v2);
+        }
+
+        fn get_wind_force(&self, p1 : Point3<f32>, p2 :  Point3<f32>, p3 :  Point3<f32>, wind_vector : Vector3<f32>) -> Vector3<f32>
+        {
+            let normal = self.triangle_normal(p1,p2,p3);
+            let normalN = normal.normalize();
+            let wind_force = normal * (normalN.dot(&wind_vector));
+            
+            return wind_force;
+        }
+        //Adds up the gravity and spring forces, and sets the resulting velocities.
         pub fn update_velocity(&mut self, dt : f32) {
             let gravity : Vector3<f32> = Vector3::new(0.0, -9.81, 0.0);
 
             //Reset velocity
-            for vel in self.velocities.iter_mut()  {
-                *vel = gravity * dt;
+            for v in 0..self.velocities.len()  {
+                self.velocities[v] = gravity * self.masses[v] * dt;
             }
 
+            let mut pr = 0;
             //Add up spring forces
             for spring in self.springs.iter()  {
                 let vert1_index : usize = spring.vert1;
@@ -187,11 +205,34 @@ mod cloth {
                 //Calculate and apply force to the connected points
                 let force = (stretch + damping) * direction_n;
 
-                self.velocities[vert1_index] += force / self.masses[vert1_index];
-                self.velocities[vert2_index] -= force / self.masses[vert2_index];
+                self.velocities[vert1_index] += force * dt / self.masses[vert1_index];
+                self.velocities[vert2_index] -= force * dt / self.masses[vert2_index];
+            }
+
+            let wind_vector : Vector3<f32> = Vector3::new(0.5, 0.0, 0.5);
+
+            //Add up wind forces
+            for x in 0..(self.width - 1)  {
+                for y in 0..(self.height-1){
+                    
+                    //Get wind forces
+                    let wind_force1 = self.get_wind_force(self.vertices[x + y * self.width], self.vertices[x + 1 + y * self.width], self.vertices[x + (y + 1) * self.width], wind_vector);
+                    let wind_force2 = self.get_wind_force(self.vertices[x + (y + 1) * self.width], self.vertices[x + 1 + (y + 1) * self.width], self.vertices[x + 1 + y * self.width], wind_vector);
+
+                    //Triangle 1
+                    self.velocities[x + y * self.width] += wind_force1 * dt / self.masses[x + y * self.width];
+                    self.velocities[x + 1 + y * self.width] += wind_force1 * dt / self.masses[x + 1 + y * self.width];
+                    self.velocities[x + (y+1) * self.width] += wind_force1 * dt / self.masses[x + (y+1) * self.width];
+                    //Triangle2
+                    self.velocities[x + (y + 1) * self.width] += wind_force2 * dt / self.masses[x + (y + 1) * self.width];
+                    self.velocities[x + 1 + (y + 1) * self.width] += wind_force2 * dt / self.masses[x + 1 + (y + 1) * self.width];
+                    self.velocities[x + 1 + y * self.width] += wind_force2 * dt / self.masses[x + 1 + y * self.width];
+                }
+                
             }
         }
         
+        //Updates the positions according to the velocities.
         pub fn update_position(&mut self, dt : f32) {
             for i in 0..self.vertices.len() {
                 //Fixed point doesnt move
@@ -275,6 +316,21 @@ fn main() {
         cloth_object.set_surface_rendering_activation(false);
 
 
+        cloth.update(0.02);
+        cloth.update(0.02);
+        cloth.update(0.02);
+        cloth.update(0.02);
+        cloth.update(0.02);
+        cloth.update(0.02);
+        cloth.update(0.02);
+        cloth.update(0.02);
+        cloth.update(0.02);
+        cloth.update(0.02);
+        cloth.update(0.02);
+        cloth.update(0.02);
+        cloth.update(0.02);
+        cloth.update(0.02);
+        cloth.update(0.02);
         cloth.update(0.02);
     }
 }
