@@ -1,5 +1,6 @@
 extern crate kiss3d;
 extern crate nalgebra as na;
+extern crate rayon;
 
 use kiss3d::camera::{ArcBall, FirstPerson};
 use kiss3d::event::{Action, Key, WindowEvent};
@@ -9,6 +10,7 @@ use kiss3d::resource::{Mesh, MeshManager};
 use na::{Translation3, Point3, UnitQuaternion, Vector3};
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 mod cloth {
     use kiss3d::camera::{ArcBall, FirstPerson};
@@ -19,6 +21,7 @@ mod cloth {
     use na::{Point3, UnitQuaternion, Vector3};
     use std::cell::RefCell;
     use std::rc::Rc;
+    use rayon::prelude::*;
     
     pub struct Cloth {
         pub vertices: Vec<Point3<f32>>,
@@ -151,16 +154,6 @@ mod cloth {
                     mesh: None }
         }
 
-        // Either returns the mesh or instantiates it and returns it.
-        pub fn get_mesh(mut self) -> Mesh {
-            if let Some(m) = self.mesh {
-                m
-            } else {
-                self.mesh = Some(Mesh::new(self.vertices, self.indices, None, None, false));
-                self.mesh.unwrap()
-            }
-        }
-
         //Calculates the normal for a triangle defined by the given points
         fn triangle_normal(&self, p1 : Point3<f32>, p2 :  Point3<f32>, p3 :  Point3<f32>) -> Vector3<f32>
         {
@@ -190,7 +183,9 @@ mod cloth {
 
             let mut pr = 0;
             //Add up spring forces
-            for spring in self.springs.iter()  {
+            let mut parallel_results: Vec<(usize, usize, Vector3<f32>)>;
+            parallel_results = (0..self.springs.len()).into_par_iter().map(|i| {
+                let spring = &self.springs[i];
                 let vert1_index : usize = spring.vert1;
                 let vert2_index : usize = spring.vert2;
 
@@ -205,9 +200,12 @@ mod cloth {
 
                 //Calculate and apply force to the connected points
                 let force = (stretch + damping) * direction_n;
-
-                self.velocities[vert1_index] += force * dt / self.masses[vert1_index];
-                self.velocities[vert2_index] -= force * dt / self.masses[vert2_index];
+                (vert1_index, vert2_index, force * dt / self.masses[vert1_index])
+            }).collect();
+            
+            for (v1, v2, result) in parallel_results {
+                self.velocities[v1] += result;
+                self.velocities[v2] -= result;
             }
 
             let wind_vector : Vector3<f32> = Vector3::new(0.5, 0.0, 0.5);
@@ -298,6 +296,7 @@ fn main() {
     s.append_translation(&Translation3::new((cloth.width as f32)/2.0, -(sphere_size * 1.5), (cloth.width as f32)/2.0));
     
     // Update loop
+    let mut num_iter = 1;
     while !window.should_close() {
         // rotate the arc-ball camera.
         let curr_yaw = arc_ball.yaw();
@@ -339,28 +338,25 @@ fn main() {
 
         // Set wireframe rendering.
         cloth_object.set_color(96.4, 0.0, 0.61);
-        cloth_object.set_points_size(10.0);
-        cloth_object.set_lines_width(2.0);
-        cloth_object.set_surface_rendering_activation(false);
+        cloth_object.set_color(0.5, 0.5, 0.5);
+        //cloth_object.set_points_size(10.0);
+        //cloth_object.set_lines_width(2.0);
+        //cloth_object.set_surface_rendering_activation(false);
 
-
+        let time = Instant::now();
         if simulate {
-            cloth.update(0.02);
-            cloth.update(0.02);
-            cloth.update(0.02);
-            cloth.update(0.02);
-            cloth.update(0.02);
-            cloth.update(0.02);
-            cloth.update(0.02);
-            cloth.update(0.02);
-            cloth.update(0.02);
-            cloth.update(0.02);
-            cloth.update(0.02);
-            cloth.update(0.02);
-            cloth.update(0.02);
-            cloth.update(0.02);
-            cloth.update(0.02);
-            cloth.update(0.02);
+            for i in (0..num_iter) {
+                cloth.update(0.02);
+            }
+
+            let duration = time.elapsed();
+            
+            if duration < Duration::from_millis(16) {
+                num_iter += 1;
+            } else {
+                num_iter -= 1;
+            }
+            println!("Did {} iterations at {:?}", num_iter, duration);
         }
     }
 }
