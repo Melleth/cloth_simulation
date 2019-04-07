@@ -28,16 +28,19 @@ mod cloth {
         height: usize,
         mesh: Option<Mesh>,
         springs: Vec<Spring>,
-        cloth_points: Vec<ClothPoint>,
+
+        velocities: Vec<Vector3<f32>>,
+        masses: Vec<f32>,
+        is_fixed: Vec<bool>,
     }
 
-    #[derive(Clone)]
+/*     #[derive(Clone)]
     pub struct ClothPoint {
         mass: f32,
         velocity: Vector3<f32>,
         spring_indices: Vec<usize>,
         is_fixed: bool,
-    }
+    } */
 
     pub struct Spring {
         rest_length: f32,
@@ -62,7 +65,7 @@ mod cloth {
         }
     }
 
-    impl ClothPoint {
+/*     impl ClothPoint {
         pub fn new(mass: f32, velocity: Vector3<f32>, is_fixed: bool) -> ClothPoint {
             
             ClothPoint {
@@ -72,7 +75,7 @@ mod cloth {
                 is_fixed: is_fixed,
             }
         }
-    }
+    } */
 
     impl Cloth {
         pub fn new(width: usize, height: usize) -> Cloth {
@@ -102,65 +105,56 @@ mod cloth {
                 //println!("i: {}, y: {}, indice: {}, vertices: {}, {}, {}", i, y, indice, vertices[indice.coords.x as usize], vertices[indice.coords.y as usize], vertices[indice.coords.z as usize]);
             }
 
+            //Setup mass points
             let mass : f32 = 1.0;
-            
-            //TODO: Maybe just tear this apart and have vectors for each value, might be faster for resseting the velocity every t?
-            let mut cloth_points: Vec<ClothPoint> = vec![ClothPoint::new(mass, Vector3::new(0.0, 0.0, 0.0), false); width * height];
+            let mut masses: Vec<f32> = vec![mass; width * height];
+            let mut velocities: Vec<Vector3<f32>> = vec![Vector3::new(0.0, 0.0, 0.0); width * height];
+            let mut is_fixed: Vec<bool> = vec![false; width * height];
 
             //Fix top corners
-            cloth_points[width * height - 1].is_fixed = true;
-            cloth_points[width * height - width].is_fixed = true;
+            is_fixed[0] = true;
+            is_fixed[width-1] = true;
 
             let mut springs: Vec<Spring> = Vec::with_capacity(4 * (width * height) - 3 * (width - 1) - 3 * (height - 1) - 4);
 
             let rest_length : f32 = 1.0;
             let diagonal_rest_length : f32 =  (2.0 * (rest_length * rest_length)).sqrt();
-            let forceConstant = 1.0;
+            let force_constant = 1.0;
             let k_damping = 0.1;
             let distance_scale = 10.0;
 
             //Connect top row
             for x in 0..(width-1)  {
-                cloth_points[x].spring_indices.push(springs.len());
-                springs.push(Spring::new(rest_length, forceConstant, k_damping, distance_scale, x, x + 1)); //Right
+                springs.push(Spring::new(rest_length, force_constant, k_damping, distance_scale, x, x + 1)); //Right
 
-                cloth_points[x].spring_indices.push(springs.len());
-                springs.push(Spring::new(rest_length, forceConstant, k_damping, distance_scale, x, x + width)); //Bottom
+                springs.push(Spring::new(rest_length, force_constant, k_damping, distance_scale, x, x + width)); //Bottom
 
-                cloth_points[x].spring_indices.push(springs.len());
-                springs.push(Spring::new(diagonal_rest_length, forceConstant, k_damping, distance_scale, x, (x + 1) + width)); //Bottom right
+                springs.push(Spring::new(diagonal_rest_length, force_constant, k_damping, distance_scale, x, (x + 1) + width)); //Bottom right
             }
 
             //Connect right column
             for y in 0..(height - 1) {
-                cloth_points[(width-1) + (y * width)].spring_indices.push(springs.len());
-                springs.push(Spring::new(rest_length, forceConstant, k_damping, distance_scale, (width-1) + (y * width), (width-1) + ((y+1) * width))); //Bottom
+                springs.push(Spring::new(rest_length, force_constant, k_damping, distance_scale, (width-1) + (y * width), (width-1) + ((y+1) * width))); //Bottom
             }
 
             //Connect middle
             for y in 1..(height - 1) {
                 for x in 0..(width - 1){
-                    cloth_points[x + (y * width)].spring_indices.push(springs.len());
-                    springs.push(Spring::new(diagonal_rest_length, forceConstant, k_damping, distance_scale, x + (y * width), (x+1) + ((y-1) * width))); //Top right
+                    springs.push(Spring::new(diagonal_rest_length, force_constant, k_damping, distance_scale, x + (y * width), (x+1) + ((y-1) * width))); //Top right
 
-                    cloth_points[x + (y * width)].spring_indices.push(springs.len());
-                    springs.push(Spring::new(rest_length, forceConstant, k_damping, distance_scale, x + (y * width), (x+1) + (y * width))); //Right
+                    springs.push(Spring::new(rest_length, force_constant, k_damping, distance_scale, x + (y * width), (x+1) + (y * width))); //Right
 
-                    cloth_points[x + (y * width)].spring_indices.push(springs.len());
-                    springs.push(Spring::new(diagonal_rest_length, forceConstant, k_damping, distance_scale, x + (y * width), (x+1) + ((y+1) * width))); //Bottom Right
+                    springs.push(Spring::new(diagonal_rest_length, force_constant, k_damping, distance_scale, x + (y * width), (x+1) + ((y+1) * width))); //Bottom Right
 
-                    cloth_points[x + (y * width)].spring_indices.push(springs.len());
-                    springs.push(Spring::new(rest_length, forceConstant, k_damping, distance_scale, x + (y * width), x + ((y+1) * width))); //Bottom
+                    springs.push(Spring::new(rest_length, force_constant, k_damping, distance_scale, x + (y * width), x + ((y+1) * width))); //Bottom
                 }
             }
 
             //Connect bottom row
             for x in 0..(width - 1) {
-                cloth_points[x + ((height-1) * width)].spring_indices.push(springs.len());
-                springs.push(Spring::new(diagonal_rest_length, forceConstant, k_damping, distance_scale, x + ((height-1) * width), (x+1) + ((height-2) * width))); //Top right
+                springs.push(Spring::new(diagonal_rest_length, force_constant, k_damping, distance_scale, x + ((height-1) * width), (x+1) + ((height-2) * width))); //Top right
                 
-                cloth_points[x + ((height-1) * width)].spring_indices.push(springs.len());
-                springs.push(Spring::new(rest_length, forceConstant, k_damping, distance_scale, x + ((height-1) * width), (x+1) + ((height-1) * width))); //Right
+                springs.push(Spring::new(rest_length, force_constant, k_damping, distance_scale, x + ((height-1) * width), (x+1) + ((height-1) * width))); //Right
             }
             
             //Bottom right corner is connected through the other loops
@@ -172,7 +166,9 @@ mod cloth {
                     vertices: vertices,
                     indices: indices,
                     springs: springs,
-                    cloth_points: cloth_points,
+                    velocities: velocities,
+                    masses: masses,
+                    is_fixed: is_fixed,
                     mesh: None }
         }
 
@@ -190,8 +186,8 @@ mod cloth {
             let gravity : Vector3<f32> = Vector3::new(0.0, -9.81, 0.0);
 
             //Reset velocity
-            for cloth_point in self.cloth_points.iter_mut()  {
-                cloth_point.velocity = gravity * dt;
+            for vel in self.velocities.iter_mut()  {
+                *vel = gravity * dt;
             }
 
             //Add up spring forces
@@ -205,24 +201,24 @@ mod cloth {
                 
                 //Calculate damping term
                 let direction_n = (self.vertices[vert2_index] - self.vertices[vert1_index]).normalize();
-                let velocity_diff = self.cloth_points[vert2_index].velocity - self.cloth_points[vert1_index].velocity;
+                let velocity_diff = self.velocities[vert2_index] - self.velocities[vert1_index];
                 let damping = spring.k_damping * velocity_diff.dot(&direction_n);
 
                 //Calculate and apply force to the connected points
                 let force = (stretch + damping) * direction_n;
 
-                self.cloth_points[vert1_index].velocity += force / self.cloth_points[vert1_index].mass;
-                self.cloth_points[vert2_index].velocity -= force / self.cloth_points[vert2_index].mass;
+                self.velocities[vert1_index] += force / self.masses[vert1_index];
+                self.velocities[vert2_index] -= force / self.masses[vert2_index];
             }
         }
         
         pub fn update_position(&mut self, dt : f32) {
             for i in 0..self.vertices.len() {
                 //Fixed point doesnt move
-                if self.cloth_points[i].is_fixed {
+                if self.is_fixed[i] {
                     continue;
                 }
-                self.vertices[i] += self.cloth_points[i].velocity * dt;
+                self.vertices[i] += self.velocities[i] * dt;
             }
         }
         
