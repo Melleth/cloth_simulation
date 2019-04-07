@@ -34,7 +34,7 @@ impl AbstractCanvas for GLCanvas {
             .with_dimensions(LogicalSize::new(width as f64, height as f64))
             .with_visibility(!hide);
         let context = ContextBuilder::new()
-            .with_vsync(true)
+            .with_vsync(false)
             .with_gl(GlRequest::GlThenGles {
                 opengl_version: (3, 2),
                 opengles_version: (2, 0),
