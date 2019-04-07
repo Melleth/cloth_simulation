@@ -5,5 +5,5 @@ authors = ["siemenkraayenbrink"]
 edition = "2018"
 
 [dependencies]
-kiss3d = "0.18.0"
+kiss3d = { path = "include/kiss3d-custom" } 
 nalgebra = "0.17.2"

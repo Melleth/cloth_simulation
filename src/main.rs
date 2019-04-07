@@ -224,6 +224,9 @@ fn main() {
     let mut window = Window::new("Cloth Simulation");
     window.set_light(Light::StickToCamera);
     window.set_background_color(0.0, 0.21, 0.53);
+    
+    window.set_framerate_limit(None);
+    //window.set_framerate_limit(Some(60));
 
     // Define the cloth, get the mesh from it and add it to the scene.
     let mut cloth = cloth::Cloth::new(30,30);
