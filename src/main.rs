@@ -84,7 +84,7 @@ mod cloth {
 
         pub fn add_vert(&mut self, vert_index : usize, vert_pos : Point3<f32>) {
             
-            //Move origin to center of grid.
+            //Move to grid space.
             let grid_vert_pos = vert_pos - self.grid_position;
 
             //Calculate grid cell and push
@@ -124,7 +124,7 @@ mod cloth {
             let y = (grid_vert_new_pos.coords[1] / self.cell_dimensions) as usize;
             let z = (grid_vert_new_pos.coords[2] / self.cell_dimensions) as usize;
             
-            if (x != x_o) && (y != y_o) && (z != z_o) {
+            if (x != x_o) || (y != y_o) || (z != z_o) {
                 //Remove from old and add to new
                 self.cells[x_o][y_o][z_o].retain(|&e| e != vert_index);
                 self.cells[x][y][z].push(vert_index);
@@ -135,7 +135,7 @@ mod cloth {
         {
             //Calculate collision box by contructing min and max corners from position in grid space and radius (diagonal)
             let corner_normal : Vector3<f32> = Vector3::new(0.57735, 0.57735, 0.57735);
-            let corner_vec = corner_normal * radius;
+            let corner_vec = 1.01 * corner_normal * radius;
 
             let min = (position - self.grid_position) - corner_vec;
             let max = (position - self.grid_position) + corner_vec;
@@ -144,14 +144,11 @@ mod cloth {
             let x_min = min.coords[0] as usize;
             let y_min = min.coords[1] as usize;
             let z_min = min.coords[2] as usize;
-            // let x_max = max.coords[0].ceil().min(self.grid_dimensions as f32) as usize;
-            // let y_max = max.coords[1].ceil().min(self.grid_dimensions as f32) as usize;
-            // let z_max = max.coords[2].ceil().min(self.grid_dimensions as f32) as usize;
 
             let x_max = max.coords[0].ceil() as usize;
             let y_max = max.coords[1].ceil() as usize;
             let z_max = max.coords[2].ceil() as usize;
-            
+
             let mut near_indices : Vec<usize> = Vec::new();
 
             for x in x_min..x_max {
