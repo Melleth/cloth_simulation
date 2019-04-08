@@ -406,17 +406,31 @@ mod cloth {
                             
                             let neat_indices = self.grid.get_near_indices(self.vertices[vert_index], double_radius);
                             
+                            let mut neighbours : Vec<usize> = Vec::new();
+
+                            neighbours.push((x+1) + y * self.width); //right
+                            neighbours.push(x + (y+1) * self.width); //bottom
+                            neighbours.push((x+1) + (y+1) * self.width); //bottom-right
+
+                            if x != 0
+                            {
+                                neighbours.push((x-1) + (y * self.width)); //left
+                                neighbours.push((x-1) + ((y+1) * self.width)); //bottom-left
+                                if y != 0
+                                {
+                                    neighbours.push((x-1) + ((y-1) * self.width)); //top-left
+                                }
+                            }
+
+                            if y != 0
+                            {
+                                neighbours.push(x + ((y-1) * self.width)); //top
+                                neighbours.push((x+1) + ((y-1) * self.width)); //top-right
+                            }
+
                             for &collision_index in neat_indices.iter() {
-                                if !((vert_index == collision_index) || //self
-                                    (x+1) + y * self.width == collision_index || //right
-                                    ((x!=0) && (x-1) + y * self.width == collision_index) || //left
-                                    x + ((y+1) * self.width) == collision_index || //top
-                                    ((y!=0) && x + ((y-1) * self.width) == collision_index) || //bottom
-                                    ((x!=0) && (y!=0) && (x-1) + ((y-1) * self.width) == collision_index) || //top-left
-                                    ((y!=0) && (x+1) + ((y-1) * self.width) == collision_index) || //top-right
-                                    (x+1) + ((y+1) * self.width) == collision_index || //bottom-right
-                                    ((x!=0) && (x-1) + ((y+1) * self.width) == collision_index)) //bottom-left
-                                    {
+                                 //skip self or neighbour
+                                if !(vert_index == collision_index || neighbours.contains(&collision_index)) {
                                         //Calculate distance between spheres
                                         let distance_vec = self.vertices[collision_index] - self.vertices[vert_index];
                                         let distance_norm = distance_vec.norm();
