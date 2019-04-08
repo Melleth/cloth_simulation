@@ -34,6 +34,8 @@ mod cloth {
         velocities: Vec<Vector3<f32>>,
         masses: Vec<f32>,
         is_fixed: Vec<bool>,
+
+        grid : Grid,
     }
 
     pub struct Spring {
@@ -58,14 +60,129 @@ mod cloth {
         }
     }
     
+    pub struct Grid {
+        cells : Vec<Vec<Vec<Vec<usize>>>>,
+        cell_dimensions : f32,
+        grid_position : Vector3<f32>, //min corner
+        grid_dimensions : usize,
+    }
+
+    impl Grid {
+        pub fn new(grid_dimension : usize, cell_dimension : f32, grid_center : Vector3<f32>) -> Grid {
+            
+            let cells = vec![vec![vec![Vec::new();grid_dimension];grid_dimension];grid_dimension];
+            let half_dim = (grid_dimension as f32) / 2.0;
+            let half_dim_vec : Vector3<f32> = Vector3::new(half_dim, half_dim, half_dim);
+
+            Grid {
+                cells : cells,
+                cell_dimensions : cell_dimension,
+                grid_position : grid_center - half_dim_vec,
+                grid_dimensions : grid_dimension,
+            }
+        }
+
+        pub fn add_vert(&mut self, vert_index : usize, vert_pos : Point3<f32>) {
+            
+            //Move to grid space.
+            let grid_vert_pos = vert_pos - self.grid_position;
+
+            //Calculate grid cell and push
+            let x = (grid_vert_pos.coords[0] / self.cell_dimensions) as usize;
+            let y = (grid_vert_pos.coords[1] / self.cell_dimensions) as usize;
+            let z = (grid_vert_pos.coords[2] / self.cell_dimensions) as usize;
+            self.cells[x][y][z].push(vert_index);
+        }
+
+        pub fn remove_vert(&mut self, vert_index : usize, vert_old_pos : Point3<f32>) {
+
+            //Move origin to center of grid.
+            let grid_vert_old_pos = vert_old_pos - self.grid_position;
+
+            //Calculate grid cell and push
+            let x_o = (grid_vert_old_pos.coords[0] / self.cell_dimensions) as usize;
+            let y_o = (grid_vert_old_pos.coords[1] / self.cell_dimensions) as usize;
+            let z_o = (grid_vert_old_pos.coords[2] / self.cell_dimensions) as usize;
+            
+            //Remove from old
+            self.cells[x_o][y_o][z_o].retain(|&e| e != vert_index)
+        }
+
+        pub fn move_vert(&mut self, vert_index : usize, vert_old_pos : Point3<f32>, vert_new_pos : Point3<f32>) {
+            
+            //Move origin to center of grid.
+            let grid_vert_old_pos = vert_old_pos - self.grid_position;
+            let grid_vert_new_pos = vert_new_pos - self.grid_position;
+
+            //Calculate grid cell and push
+            let x_o = (grid_vert_old_pos.coords[0] / self.cell_dimensions) as usize;
+            let y_o = (grid_vert_old_pos.coords[1] / self.cell_dimensions) as usize;
+            let z_o = (grid_vert_old_pos.coords[2] / self.cell_dimensions) as usize;
+
+            //Calculate grid cell and push
+            let x = (grid_vert_new_pos.coords[0] / self.cell_dimensions) as usize;
+            let y = (grid_vert_new_pos.coords[1] / self.cell_dimensions) as usize;
+            let z = (grid_vert_new_pos.coords[2] / self.cell_dimensions) as usize;
+            
+            if (x != x_o) || (y != y_o) || (z != z_o) {
+                //Remove from old and add to new
+                self.cells[x_o][y_o][z_o].retain(|&e| e != vert_index);
+                self.cells[x][y][z].push(vert_index);
+            }
+        }
+
+        pub fn get_near_indices(&self, position : Point3<f32>, radius : f32) -> Vec<usize>
+        {
+            //Calculate collision box by contructing min and max corners from position in grid space and radius
+            let corner_unit : Vector3<f32> = Vector3::new(1.0, 1.0, 1.0);
+            let corner_vec = corner_unit * radius; 
+
+            let min = (position - self.grid_position) - corner_vec;
+            let max = (position - self.grid_position) + corner_vec;
+            
+            //Min corner
+            let x_min = min.coords[0] as usize;
+            let y_min = min.coords[1] as usize;
+            let z_min = min.coords[2] as usize;
+
+            //Max corner
+            let x_max = max.coords[0].ceil() as usize;
+            let y_max = max.coords[1].ceil() as usize;
+            let z_max = max.coords[2].ceil() as usize;
+
+            //Gather all the points in the overlapping cells, and return
+            let mut near_indices : Vec<usize> = Vec::new();
+
+            for x in x_min..x_max {
+                for y in y_min..y_max {
+                    for z in z_min..z_max {
+                        for n in 0..self.cells[x][y][z].len() {
+                            near_indices.push(self.cells[x][y][z][n]);
+                        }
+                    }
+                }
+            }
+
+            return near_indices;
+        }
+    }
+
     impl Cloth {
         pub fn new(width: usize, height: usize) -> Cloth {
             let mut vertices: Vec<Point3<f32>> =  vec![Point3::origin(); width*height];
             let mut indices: Vec<Point3<u16>> = vec![Point3::new(0u16, 0, 0); width * height * 2];
+
+            //Grid
+            let grid_size = std::cmp::max(width, height) * 5;
+            let mut grid = Grid::new(grid_size, 1.0 ,Vector3::new((width / 2) as f32, (height / 2) as f32, 0.0));
+
             for i in 0..height {
                 for j in 0..width {
                     // Construct in z plane for now :)
                     vertices[j + i * width] = Point3::new(j as f32, 0.0, i as f32);
+                    
+                    //Add verts to grid
+                    grid.add_vert(j + i * width, vertices[j + i * width]);
                 }
             }
 
@@ -140,8 +257,6 @@ mod cloth {
             
             //Bottom right corner is connected through the other loops
 
-            //TODO: Add bending springs? (skips 1 over)
-
             Cloth { width: width, 
                     height: height,
                     vertices: vertices,
@@ -150,7 +265,8 @@ mod cloth {
                     velocities: velocities,
                     masses: masses,
                     is_fixed: is_fixed,
-                    mesh: None }
+                    mesh: None,
+                    grid: grid }
         }
 
         //Calculates the normal for a triangle defined by the given points
@@ -236,28 +352,105 @@ mod cloth {
                 if self.is_fixed[i] {
                     continue;
                 }
+                let old_pos = self.vertices[i];
                 self.vertices[i] += self.velocities[i] * dt;
+
+                self.grid.move_vert(i, old_pos, self.vertices[i]);
             }
         }
         
         pub fn update(&mut self, dt : f32) {
             //TODO: Add sphere pos/size settings nicely
-            self.sphere_collision(Point3::new((self.width as f32)/2.0, -(5.0 * 1.5), (self.width as f32)/2.0), 5.0);
+            self.sphere_collision(Point3::new((self.width as f32)/2.0, -(5.0 * 1.5), (self.width as f32)/3.0), 5.0, 0.2);
+            self.self_intersection(1.0);
             self.update_velocity(dt);
             self.update_position(dt);
         }
 
-        //Very naïve sphere - point collision detection and correction.
-        pub fn sphere_collision(&mut self, sphere_position: Point3<f32>, sphere_radius: f32) {
-            let sphere_radius_delta = sphere_radius + 0.2;
-            for vert in self.vertices.iter_mut()  {
+        //Directional rejection sphere - point collision detection and correction.
+        pub fn sphere_collision(&mut self, sphere_position: Point3<f32>, sphere_radius: f32, delta: f32) {
+            let sphere_radius_delta = sphere_radius + delta;
+
+            for i in 0..self.vertices.len()  {
                 //Calculate distance from sphere
-                let distance = *vert - sphere_position;
-                let distance_norm = distance.norm();
+                let distance_vec = self.vertices[i] - sphere_position;
+                let distance_norm = distance_vec.norm();
 
                 //If inside sphere, correct
                 if distance_norm < sphere_radius_delta {
-                    *vert += distance.normalize() * (sphere_radius_delta - distance_norm);
+
+                    let mut pen_normal = distance_vec.normalize();
+                    let d_dot_n = distance_vec.dot(&pen_normal);
+
+                    //Directional rejection
+                    if d_dot_n < 0.0 {
+                       pen_normal = distance_vec - 2.0 * d_dot_n * pen_normal;
+                    }
+
+                    let old_pos = self.vertices[i];
+                    self.vertices[i] += pen_normal * (sphere_radius_delta - distance_norm);
+
+                    self.grid.move_vert(i, old_pos, self.vertices[i]);
+                }
+            }
+        }
+
+        //self intersection resolution by putting a collision sphere around all the verts, don't correct for neighbours.
+        pub fn self_intersection(&mut self, sphere_radius : f32) {
+
+            let double_radius = 2.0 * sphere_radius;
+
+            for y in 0..(self.height) {
+                for x in 0..(self.width) {
+                    let vert_index = x + y * self.width;
+                            
+                            //Retrieve the potential collision candidates from the grid
+                            let near_indices = self.grid.get_near_indices(self.vertices[vert_index], double_radius);
+                            
+                            //Skip over the neighbours of this point
+                            let mut neighbours : Vec<usize> = Vec::new();
+                            if x != 0                                       {neighbours.push((x-1) + ( y    * self.width));} //left
+                            if x != 0 && y != 0                             {neighbours.push((x-1) + ((y-1) * self.width));} //top-left
+                            if x != 0 && y != (self.height-1)               {neighbours.push((x-1) + ((y+1) * self.width));} //bottom-left
+                            if x != (self.width-1) && y != 0                {neighbours.push((x+1) + ((y-1) * self.width));} //top-right
+                            if x != (self.width-1) && y != (self.height-1)  {neighbours.push((x+1) + ((y+1) * self.width));} //bottom-right
+                            if x != (self.width-1)                          {neighbours.push((x+1) +  (y    * self.width));} //right
+                            if y != 0                                       {neighbours.push( x    + ((y-1) * self.width));} //top
+                            if y != (self.height - 1)                       {neighbours.push( x    + ((y+1) * self.width));} //bottom
+
+                            for &collision_index in near_indices.iter() {
+                                 //skip self or neighbour
+                                if !(vert_index == collision_index || neighbours.contains(&collision_index)) {
+                                        //Calculate distance between spheres
+                                        let distance_vec = self.vertices[collision_index] - self.vertices[vert_index];
+                                        let distance_norm = distance_vec.norm();
+
+                                        //If inside sphere, correct
+                                        if distance_norm < (double_radius) {
+
+                                            let mut pen_normal = distance_vec / distance_norm;
+                                            let d_dot_n = distance_vec.dot(&pen_normal);
+
+                                            //Directional rejection
+                                            if d_dot_n < 0.0 {
+                                                pen_normal = distance_vec - 2.0 * d_dot_n * pen_normal;
+                                            }
+                                            let pen_depth = (2.0 * sphere_radius) - distance_norm;
+
+                                            let old_pos = self.vertices[vert_index];
+                                            let old_col_pos = self.vertices[collision_index];
+
+                                            self.vertices[vert_index] -= pen_normal * (pen_depth / 2.0);
+                                            self.vertices[collision_index] += pen_normal * (pen_depth / 2.0);
+
+                                            //Move in grid
+                                            self.grid.move_vert(vert_index, old_pos, self.vertices[vert_index]);
+                                            self.grid.move_vert(collision_index, old_col_pos, self.vertices[collision_index]);
+                                    }
+                                }
+                            
+                        }
+                    
                 }
             }
         }
@@ -290,7 +483,7 @@ fn main() {
     let sphere_size : f32 = 5.0;
     let mut s = window.add_sphere(sphere_size);
     s.set_color(0.9506297, 0.9983103, 0.95816237);
-    s.append_translation(&Translation3::new((cloth.width as f32)/2.0, -(sphere_size * 1.5), (cloth.width as f32)/2.0));
+    s.append_translation(&Translation3::new((cloth.width as f32)/2.0, -(sphere_size * 1.5), (cloth.width as f32)/3.0));
     
     // Update loop
     let mut num_iter = 1;
