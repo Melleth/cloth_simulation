@@ -404,31 +404,29 @@ mod cloth {
                 for x in 0..(self.width) {
                     let vert_index = x + y * self.width;
                             
-                            let neat_indices = self.grid.get_near_indices(self.vertices[vert_index], double_radius);
+                            let near_indices = self.grid.get_near_indices(self.vertices[vert_index], double_radius);
                             
                             let mut neighbours : Vec<usize> = Vec::new();
 
-                            neighbours.push((x+1) + y * self.width); //right
-                            neighbours.push(x + (y+1) * self.width); //bottom
-                            neighbours.push((x+1) + (y+1) * self.width); //bottom-right
 
-                            if x != 0
-                            {
-                                neighbours.push((x-1) + (y * self.width)); //left
-                                neighbours.push((x-1) + ((y+1) * self.width)); //bottom-left
-                                if y != 0
-                                {
-                                    neighbours.push((x-1) + ((y-1) * self.width)); //top-left
-                                }
-                            }
+                            if x != 0                                       {neighbours.push((x-1) + ( y    * self.width));} //left
+                            if x != 0 && y != 0                             {neighbours.push((x-1) + ((y-1) * self.width));} //top-left
+                            if x != 0 && y != (self.height-1)               {neighbours.push((x-1) + ((y+1) * self.width));} //bottom-left
+                            if x != (self.width-1) && y != 0                {neighbours.push((x+1) + ((y-1) * self.width));} //top-right
+                            if x != (self.width-1) && y != (self.height-1)  {neighbours.push((x+1) + ((y+1) * self.width));} //bottom-right
+                            if x != (self.width-1)                          {neighbours.push((x+1) +  (y    * self.width));} //right
+                            if y != 0                                       {neighbours.push( x    + ((y-1) * self.width));} //top
+                            if y != (self.height - 1)                       {neighbours.push( x    + ((y+1) * self.width));} //bottom
 
-                            if y != 0
-                            {
-                                neighbours.push(x + ((y-1) * self.width)); //top
-                                neighbours.push((x+1) + ((y-1) * self.width)); //top-right
-                            }
+                            // println!("vert_index: {}", vert_index);
 
-                            for &collision_index in neat_indices.iter() {
+                            // println!("neighbours:");
+                            // for nqweqw in 0..neighbours.len()
+                            // {
+                            //     println!("n: {}", neighbours[nqweqw]);
+                            // }
+
+                            for &collision_index in near_indices.iter() {
                                  //skip self or neighbour
                                 if !(vert_index == collision_index || neighbours.contains(&collision_index)) {
                                         //Calculate distance between spheres
@@ -493,7 +491,7 @@ fn main() {
     let sphere_size : f32 = 5.0;
     let mut s = window.add_sphere(sphere_size);
     s.set_color(0.9506297, 0.9983103, 0.95816237);
-    s.append_translation(&Translation3::new((cloth.width as f32)/2.0, -(sphere_size * 1.5), (cloth.width as f32)/2.0));
+    s.append_translation(&Translation3::new((cloth.width as f32)/2.0, -(sphere_size * 1.5), (cloth.width as f32)/3.0));
     
     // Update loop
     let mut num_iter = 1;
