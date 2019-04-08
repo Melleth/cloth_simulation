@@ -133,9 +133,9 @@ mod cloth {
 
         pub fn get_near_indices(&self, position : Point3<f32>, radius : f32) -> Vec<usize>
         {
-            //Calculate collision box by contructing min and max corners from position in grid space and radius (diagonal)
-            let corner_normal : Vector3<f32> = Vector3::new(0.57735, 0.57735, 0.57735);
-            let corner_vec = 1.01 * corner_normal * radius;
+            //Calculate collision box by contructing min and max corners from position in grid space and radius
+            let corner_unit : Vector3<f32> = Vector3::new(1.0, 1.0, 1.0);
+            let corner_vec = corner_unit * radius; 
 
             let min = (position - self.grid_position) - corner_vec;
             let max = (position - self.grid_position) + corner_vec;
@@ -145,10 +145,12 @@ mod cloth {
             let y_min = min.coords[1] as usize;
             let z_min = min.coords[2] as usize;
 
+            //Max corner
             let x_max = max.coords[0].ceil() as usize;
             let y_max = max.coords[1].ceil() as usize;
             let z_max = max.coords[2].ceil() as usize;
 
+            //Gather all the points in the overlapping cells, and return
             let mut near_indices : Vec<usize> = Vec::new();
 
             for x in x_min..x_max {
@@ -254,8 +256,6 @@ mod cloth {
             }
             
             //Bottom right corner is connected through the other loops
-
-            //TODO: Add bending springs? (skips 1 over)
 
             Cloth { width: width, 
                     height: height,
@@ -404,11 +404,11 @@ mod cloth {
                 for x in 0..(self.width) {
                     let vert_index = x + y * self.width;
                             
+                            //Retrieve the potential collision candidates from the grid
                             let near_indices = self.grid.get_near_indices(self.vertices[vert_index], double_radius);
                             
+                            //Skip over the neighbours of this point
                             let mut neighbours : Vec<usize> = Vec::new();
-
-
                             if x != 0                                       {neighbours.push((x-1) + ( y    * self.width));} //left
                             if x != 0 && y != 0                             {neighbours.push((x-1) + ((y-1) * self.width));} //top-left
                             if x != 0 && y != (self.height-1)               {neighbours.push((x-1) + ((y+1) * self.width));} //bottom-left
@@ -417,14 +417,6 @@ mod cloth {
                             if x != (self.width-1)                          {neighbours.push((x+1) +  (y    * self.width));} //right
                             if y != 0                                       {neighbours.push( x    + ((y-1) * self.width));} //top
                             if y != (self.height - 1)                       {neighbours.push( x    + ((y+1) * self.width));} //bottom
-
-                            // println!("vert_index: {}", vert_index);
-
-                            // println!("neighbours:");
-                            // for nqweqw in 0..neighbours.len()
-                            // {
-                            //     println!("n: {}", neighbours[nqweqw]);
-                            // }
 
                             for &collision_index in near_indices.iter() {
                                  //skip self or neighbour
