@@ -64,13 +64,14 @@ mod cloth {
         cells : Vec<Vec<Vec<Vec<usize>>>>,
         cell_dimensions : f32,
         grid_position : Vector3<f32>, //min corner
-        grid_dimensions : usize,
+        cell_count : usize,
     }
 
     impl Grid {
         pub fn new(grid_dimension : usize, cell_dimension : f32, grid_center : Vector3<f32>) -> Grid {
             
-            let cells = vec![vec![vec![Vec::new();grid_dimension];grid_dimension];grid_dimension];
+            let cell_count = (grid_dimension as f32/cell_dimension + 1.0).ceil()as usize;
+            let cells = vec![vec![vec![Vec::new();cell_count];cell_count];cell_count];
             let half_dim = (grid_dimension as f32) / 2.0;
             let half_dim_vec : Vector3<f32> = Vector3::new(half_dim, half_dim, half_dim);
 
@@ -78,7 +79,7 @@ mod cloth {
                 cells : cells,
                 cell_dimensions : cell_dimension,
                 grid_position : grid_center - half_dim_vec,
-                grid_dimensions : grid_dimension,
+                cell_count : cell_count,
             }
         }
 
@@ -137,8 +138,8 @@ mod cloth {
             let corner_unit : Vector3<f32> = Vector3::new(1.0, 1.0, 1.0);
             let corner_vec = corner_unit * radius; 
 
-            let min = (position - self.grid_position) - corner_vec;
-            let max = (position - self.grid_position) + corner_vec;
+            let min = ((position - self.grid_position) - corner_vec) / self.cell_dimensions;
+            let max = ((position - self.grid_position) + corner_vec) / self.cell_dimensions;
             
             //Min corner
             let x_min = min.coords[0] as usize;
@@ -174,7 +175,7 @@ mod cloth {
 
             //Grid
             let grid_size = std::cmp::max(width, height) * 5;
-            let mut grid = Grid::new(grid_size, 1.0 ,Vector3::new((width / 2) as f32, (height / 2) as f32, 0.0));
+            let mut grid = Grid::new(grid_size, 1.0, Vector3::new((width / 2) as f32, (height / 2) as f32, 0.0));
 
             for i in 0..height {
                 for j in 0..width {
@@ -205,8 +206,8 @@ mod cloth {
 
             //Setup mass points
             let mass : f32 = 0.5;
-            let mut masses: Vec<f32> = vec![mass; width * height];
-            let mut velocities: Vec<Vector3<f32>> = vec![Vector3::new(0.0, 0.0, 0.0); width * height];
+            let masses: Vec<f32> = vec![mass; width * height];
+            let velocities: Vec<Vector3<f32>> = vec![Vector3::new(0.0, 0.0, 0.0); width * height];
             let mut is_fixed: Vec<bool> = vec![false; width * height];
 
             //Fix top corners
@@ -296,7 +297,6 @@ mod cloth {
                 self.velocities[v] = gravity * self.masses[v] * dt;
             }
 
-            let mut pr = 0;
             //Add up spring forces
             let mut parallel_results: Vec<(usize, usize, Vector3<f32>)>;
             parallel_results = (0..self.springs.len()).into_par_iter().map(|i| {
@@ -533,7 +533,7 @@ fn main() {
 
         let time = Instant::now();
         if simulate {
-            for i in (0..num_iter) {
+            for i in 0..num_iter {
                 cloth.update(0.02);
             }
 
