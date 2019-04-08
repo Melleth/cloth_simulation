@@ -242,22 +242,86 @@ mod cloth {
         
         pub fn update(&mut self, dt : f32) {
             //TODO: Add sphere pos/size settings nicely
-            self.sphere_collision(Point3::new((self.width as f32)/2.0, -(5.0 * 1.5), (self.width as f32)/2.0), 5.0);
+            self.sphere_collision(Point3::new((self.width as f32)/2.0, -(5.0 * 1.5), (self.width as f32)/3.0), 5.0, 0.2);
+            self.self_intersection(1.0);
             self.update_velocity(dt);
             self.update_position(dt);
         }
 
-        //Very naïve sphere - point collision detection and correction.
-        pub fn sphere_collision(&mut self, sphere_position: Point3<f32>, sphere_radius: f32) {
-            let sphere_radius_delta = sphere_radius + 0.2;
-            for vert in self.vertices.iter_mut()  {
+        //Directional rejection sphere - point collision detection and correction.
+        pub fn sphere_collision(&mut self, sphere_position: Point3<f32>, sphere_radius: f32, delta: f32) {
+            let sphere_radius_delta = sphere_radius + delta;
+
+            for i in 0..self.vertices.len()  {
                 //Calculate distance from sphere
-                let distance = *vert - sphere_position;
-                let distance_norm = distance.norm();
+                let distance_vec = self.vertices[i] - sphere_position;
+                let distance_norm = distance_vec.norm();
 
                 //If inside sphere, correct
                 if distance_norm < sphere_radius_delta {
-                    *vert += distance.normalize() * (sphere_radius_delta - distance_norm);
+
+                    let mut pen_normal = distance_vec.normalize();
+                    let d_dot_n = distance_vec.dot(&pen_normal);
+
+                    //Directional rejection
+                    if d_dot_n < 0.0 {
+                       pen_normal = distance_vec - 2.0 * d_dot_n * pen_normal;
+                    }
+
+                    self.vertices[i] += pen_normal * (sphere_radius_delta - distance_norm);
+
+                }
+            }
+        }
+
+        //self intersection resolution by putting a collision sphere around all the verts, don't correct for neighbours.
+        pub fn self_intersection(&mut self, sphere_radius : f32) {
+
+            //TODO: this needs a grid.
+
+            let double_radius = 2.0 * sphere_radius;
+            for y in 0..(self.height) {
+                for x in 0..(self.width) {
+                    let vert_index = x + y * self.width;
+
+                    for y_c in 0..(self.height) {
+                        for x_c in 0..(self.width) {
+
+                            if !((x == x_c && y == y_c) || //self
+                                (x == x_c+1 && y == y_c) || //right
+                                (x == x_c-1 && y == y_c) || //left
+                                (x == x_c && y == y_c+1) || //top
+                                (x == x_c && y == y_c-1) || //bottom
+                                (x == x_c-1 && y == y_c-1) || //top-left
+                                (x == x_c+1 && y == y_c-1) || //top-right
+                                (x == x_c+1 && y == y_c+1) || //bottom-right
+                                (x == x_c-1 && y == y_c+1)) //bottom-left
+                                {
+                                    let collision_index = x_c + y_c * self.width;
+                                    //Calculate distance between spheres
+                                    let distance_vec = self.vertices[collision_index] - self.vertices[vert_index];
+                                    let distance_norm = distance_vec.norm();
+                                    
+
+
+                                    //If inside sphere, correct
+                                    if distance_norm < (double_radius) {
+
+                                        let mut pen_normal = distance_vec / distance_norm;
+                                        let d_dot_n = distance_vec.dot(&pen_normal);
+
+                                        //Directional rejection
+                                        if d_dot_n < 0.0 {
+                                            pen_normal = distance_vec - 2.0 * d_dot_n * pen_normal;
+                                        }
+                                        let pen_depth = (2.0 * sphere_radius) - distance_norm;
+
+                                        self.vertices[vert_index] -= pen_normal * (pen_depth / 2.0);
+                                        self.vertices[collision_index] += pen_normal * (pen_depth / 2.0);
+                                    }
+                                }
+                        }
+                    }
                 }
             }
         }
