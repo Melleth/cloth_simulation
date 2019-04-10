@@ -24,8 +24,8 @@ We make use of a couple dependencies. They are listed in Cargo.toml, which is us
 compile the required source.
 
 1. kiss3d: https://crates.io/crates/kiss3d
-.. Amazingly easy graphics lib that allows very easy window creating, input management and provides a simple way to render 3D graphics.
+..Amazingly easy graphics lib that allows very easy window creating, input management and provides a simple way to render 3D graphics.
 2. Nalgebra: https://crates.io/crates/nalgebra
-.. linear algebra lib for rust.
+..linear algebra lib for rust.
 3. Rayon: https://crates.io/crates/rayon
-.. Data parallelism lib that implements work stealing.
+..Data parallelism lib that implements work stealing.
