@@ -1,6 +1,6 @@
 # Rusty cloth simulation.
 Repository for the small project of the INFOMGP course, year '18-'19. All code by Gert Meijer (6026087) and Siemen Kraayenbrink (4032322)
-
+![screenshot died, appearently](https://github.com/Melleth/cloth_simulation/blob/master/screenshot.png "SCREENSHOT :D")
 ## Features
 1. Mass spring damper model simulation.
 2. Wind simulation by calculating the wind direction versus the mesh triangles normal.
