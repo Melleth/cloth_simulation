@@ -18,7 +18,7 @@ mod cloth {
     use kiss3d::light::Light;
     use kiss3d::window::Window;
     use kiss3d::resource::{Mesh, MeshManager};
-    use na::{Point3, UnitQuaternion, Vector3};
+    use na::{Point2, Point3, UnitQuaternion, Vector3};
     use std::cell::RefCell;
     use std::rc::Rc;
     use rayon::prelude::*;
@@ -26,6 +26,7 @@ mod cloth {
     pub struct Cloth {
         pub vertices: Vec<Point3<f32>>,
         pub indices: Vec<Point3<u16>>,
+        pub UV: Vec<Point2<f32>>,
         pub width: usize,
         pub height: usize,
         mesh: Option<Mesh>,
@@ -171,8 +172,8 @@ mod cloth {
     impl Cloth {
         pub fn new(width: usize, height: usize) -> Cloth {
             let mut vertices: Vec<Point3<f32>> =  vec![Point3::origin(); width*height];
+            let mut UV: Vec<Point2<f32>> = vec![Point2::origin(); width*height];
             let mut indices: Vec<Point3<u16>> = vec![Point3::new(0u16, 0, 0); width * height * 2];
-
             //Grid
             let grid_size = std::cmp::max(width, height) * 5;
             let mut grid = Grid::new(grid_size, 1.0, Vector3::new((width / 2) as f32, (height / 2) as f32, 0.0));
@@ -181,7 +182,7 @@ mod cloth {
                 for j in 0..width {
                     // Construct in z plane for now :)
                     vertices[j + i * width] = Point3::new(j as f32, 0.0, i as f32);
-                    
+                    UV[j+i*width] = Point2::new(1.0 - (j as f32) / (width as f32), 1.0 - (i as f32) / (height as f32));
                     //Add verts to grid
                     grid.add_vert(j + i * width, vertices[j + i * width]);
                 }
@@ -261,6 +262,7 @@ mod cloth {
             Cloth { width: width, 
                     height: height,
                     vertices: vertices,
+                    UV: UV,
                     indices: indices,
                     springs: springs,
                     velocities: velocities,
@@ -460,12 +462,17 @@ mod cloth {
 use cloth::Cloth;
 
 fn main() {
+
+    let width = 33;
+    let height = 33;
+
     // Camera initialization stuff.
-    let eye = Point3::new(10.0f32, 10.0, 10.0);
-    let at = Point3::origin();
+    let eye = Point3::new(-12.0f32, 20.0, -12.0);
+    //let at = Point3::origin();
+    let at = Point3::new(width as f32,-20.0,height as f32);
     let mut first_person = FirstPerson::new(eye, at);
     let mut arc_ball = ArcBall::new(eye, at);
-    let mut use_arc_ball = true;
+    let mut use_arc_ball = false;
 
 
     // Window initialization stuff.
@@ -474,7 +481,7 @@ fn main() {
     window.set_background_color(0.0, 0.21, 0.53);
 
     // Define the cloth, get the mesh from it and add it to the scene.
-    let mut cloth = cloth::Cloth::new(33,33);
+    let mut cloth = cloth::Cloth::new(width,height);
     let mut old_group = window.add_group();
     let mut simulate = false;
 
@@ -484,6 +491,8 @@ fn main() {
     let mut s = window.add_sphere(sphere_size);
     s.set_color(0.9506297, 0.9983103, 0.95816237);
     s.append_translation(&Translation3::new((cloth.width as f32)/2.0, -(sphere_size * 1.5), (cloth.width as f32)/3.0));
+    s.set_texture_from_file(&std::path::Path::new("./ball.png"), "ball");
+    
     
     // Update loop
     let mut num_iter = 1;
@@ -517,14 +526,16 @@ fn main() {
         }
         old_group.unlink();
         
-        let mut mesh = Rc::new(RefCell::new(Mesh::new(cloth.vertices.clone(), cloth.indices.clone(), None, None, true)));
+        let mut mesh = Rc::new(RefCell::new(Mesh::new(cloth.vertices.clone(), cloth.indices.clone(), None, Some(cloth.UV.clone()), true)));
 
         let mut new_group = window.add_group();
         let mut cloth_object = new_group.add_mesh(mesh, Vector3::new(1.0, 1.0, 1.0));
         old_group = new_group;
         cloth_object.enable_backface_culling(false);
+        //cloth_object.set_color(0.964, 0.0, 0.61);
+        cloth_object.set_texture_from_file(&std::path::Path::new("./sPikachuHD.png"), "memes");
 
-        cloth_object.set_color(0.964, 0.0, 0.61);
+        
         if show_wireframe {
             cloth_object.set_points_size(10.0);
             cloth_object.set_lines_width(2.0);
