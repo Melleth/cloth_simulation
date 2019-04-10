@@ -6,7 +6,6 @@ use grid::Grid;
 
 const USE_MULTITHREADING: bool = true;
 
-
 pub struct Cloth {
     pub vertices: Vec<Point3<f32>>,
     pub indices: Vec<Point3<u16>>,
@@ -349,5 +348,13 @@ impl Cloth {
                 
             }
         }
+    }
+
+    // Sets all is_fixed of the edge points to true.
+    pub fn fix_edges(&mut self) {
+        for i in 0..self.width { self.is_fixed[i]=true; }
+        for i in (0..self.width * self.height).step_by(self.width) { self.is_fixed[i] = true; }
+        for i in ((self.width-1)..self.width * self.height).step_by(self.width) { self.is_fixed[i] = true; }
+        for i in (self.width * self.height - self.width)..(self.width*self.height) { self.is_fixed[i] = true; }
     }
 }

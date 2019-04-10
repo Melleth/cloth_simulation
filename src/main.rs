@@ -37,6 +37,7 @@ fn main() {
 
     // Define the cloth, get the mesh from it and add it to the scene.
     let mut cloth = Cloth::new(width,height);
+    //cloth.fix_edges();
     let mut old_group = window.add_group();
     let mut simulate = false;
 
