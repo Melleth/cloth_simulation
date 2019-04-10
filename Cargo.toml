@@ -8,6 +8,3 @@ edition = "2018"
 kiss3d = "0.18.0"
 nalgebra = "0.17.2"
 rayon = "1.0.3"
-
-[profile.release]
-debug = true
